@@ -1,46 +1,48 @@
-library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
 library(xts)
 library(lubridate)
-library(highfrequency)
-library(xts)         # For time series objects
-library(quantmod)    # For financial data handling
-library(rugarch)     # For ARCH/GARCH family models
-library(tseries)     # For time series tests
-library(FinTS)       # For ARCH tests (e.g., ArchTest)
-library(stochvol)    # For stochastic volatility estimation
+library(highfrequency)         
+library(quantmod)    
+library(tseries)     
+library(FinTS)       
+library(stochvol)    
 
-# --- Step 1. Data Import and Preparation ---
-# Read the CSV file. Adjust the 'sep' or header arguments if needed.
-# Assume the CSV has columns: "Date", "Time", "Price" (or "Close")
-data <- data <- read.csv("D:/Code/R_studio/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+os = Sys.info()["sysname"]
+
+if(os == "Windows")
+  data <- data <- read.csv("~/Documentos/Coding/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+                           header = TRUE, 
+                           stringsAsFactors = FALSE, 
+                           sep = ";",dec = ",")
+
+if (os =="Linux")
+  data <- data <- read.csv("~/Documentos/Coding/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
                          header = TRUE, 
                          stringsAsFactors = FALSE, 
                          sep = ";",dec = ",")
 
-# If the file includes separate date and time columns, combine them:
-# (Assume the date format is "YYYY-MM-DD" and time is "HH:MM:SS")
+
+
 dt1 <- as_tibble(data) %>% 
   mutate(Period = ymd_hms(X)) %>%
   select(-X) 
 
-
-# If your file already contains a datetime column, use that column instead.
-# Create an xts object using the price column (adjust the column name if needed).
 price_xts <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
+price_log_xts <- as.xts(dt1$Close.1min, order.by = dt1$Period)
 
-# --- Step 2. Compute Log Returns ---
-# Compute log returns: r_t = log(P_t) - log(P_t-1) as in equation (5.1)
-log_returns <- diff(log(price_xts))
+
+#data ret.1min ja esta em retorno de log essa parte é desnecessaria 
+log_returns <- diff(log(price_log_xts))
+log_returns[is.infinite(log_returns)] = NA
 log_returns <- na.omit(log_returns)
 
-# Plot the price and returns
-par(mfrow=c(2,1))
+
 plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="blue")
-plot(log_returns, main="Log Returns (1-min)", ylab="Return", col="red")
+
 par(mfrow=c(1,1))
 
-# --- Step 3. Basic Data Diagnostics ---
-# Plot histogram and Q-Q plot for returns
 hist(coredata(log_returns), breaks=50, main="Histogram of Log Returns", xlab="Log Return", probability = TRUE)
 lines(density(coredata(log_returns)), col="blue", lwd=2)
 qqnorm(coredata(log_returns)); qqline(coredata(log_returns), col="red")
@@ -94,15 +96,4 @@ acf(garch_resid, main="ACF of Standardized Residuals")
 acf(garch_resid^2, main="ACF of Squared Standardized Residuals")
 qqnorm(garch_resid); qqline(garch_resid, col="red")
 
-# Summary:
-# This script demonstrates how to:
-#   • Compute log returns from high-frequency price data (as in equation 5.1).
-#   • Test for ARCH effects in the return series.
-#   • Fit a basic ARCH/GARCH model (equations 5.22-5.25) using rugarch.
-#   • Explore extensions like EGARCH to capture asymmetries.
-#   • Optionally estimate a stochastic volatility model.
-#
-# These steps implement the core ideas from Chapter 5 “Modelos para a Volatilidade”
-# as summarized above (see :contentReference[oaicite:0]{index=0}, :contentReference[oaicite:1]{index=1}, and :contentReference[oaicite:2]{index=2}).
-
-# End of R script.
+    
