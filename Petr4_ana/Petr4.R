@@ -30,19 +30,36 @@ dt1 <- as_tibble(data) %>%
   select(-X) 
 
 price_xts <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
-price_log_xts <- as.xts(dt1$Close.1min, order.by = dt1$Period)
-
-
-#data ret.1min ja esta em retorno de log essa parte é desnecessaria 
-log_returns <- diff(log(price_log_xts))
-log_returns[is.infinite(log_returns)] = NA
-log_returns <- na.omit(log_returns)
 
 
 plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="black")
 
 par(mfrow=c(1,1))
 
+#tentando remover as linhas que aparecem entre os dias 
+
+dt1_minusf15 <- as_tibble(data) %>% 
+  mutate(Period = ymd_hms(X)) %>%
+  select(-X) %>%
+  filter(format(Period, "%H:%M:%S") >= "10:15:00",
+         format(Period, "%H:%M:%S") <= "17:45:00") %>%
+  arrange(Period)
+
+dt1_minusf15 <- dt1_minusf15 %>%
+  mutate(obs = row_number())
+
+n_obs <- nrow(dt1_minusf15)
+label_positions <- c(1, round(n_obs/2), n_obs)
+label_times <- format(dt1_minusf15$Period[label_positions], "%m:%d:%H:%M:%S")
+
+ggplot(dt1_minusf15, aes(x = obs, y = Ret.1min)) +
+  geom_line(color = "black", size = 1) +
+  scale_x_continuous(breaks = label_positions, labels = label_times) +
+  labs(x = "Tempo Mes/Dia/Hora/Minuto", y = "Retorno logaritmico",
+       title = "Serie temporal (linha entre os dias removida)")
+
+
+#histograma e qxq plot
 hist(coredata(log_returns), breaks=50, main="Histogram of Log Returns", xlab="Log Return", probability = TRUE)
 lines(density(coredata(log_returns)), col="blue", lwd=2)
 qqnorm(coredata(log_returns)); qqline(coredata(log_returns), col="red")
