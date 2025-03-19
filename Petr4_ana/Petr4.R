@@ -12,7 +12,7 @@ library(stochvol)
 os = Sys.info()["sysname"]
 
 if(os == "Windows")
-  data <- data <- read.csv("~/Documentos/Coding/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+  data <- data <- read.csv("D:/Code/R_studio/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
                            header = TRUE, 
                            stringsAsFactors = FALSE, 
                            sep = ";",dec = ",")
@@ -39,7 +39,7 @@ log_returns[is.infinite(log_returns)] = NA
 log_returns <- na.omit(log_returns)
 
 
-plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="blue")
+plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="black")
 
 par(mfrow=c(1,1))
 
