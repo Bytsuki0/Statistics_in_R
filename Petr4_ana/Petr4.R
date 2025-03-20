@@ -2,12 +2,21 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(xts)
+library(forecast)
 library(lubridate)
+library(PerformanceAnalytics)
 library(highfrequency)         
 library(quantmod)    
 library(tseries)     
 library(FinTS)       
-library(stochvol)    
+library(stochvol)  
+library(fpp2)     
+library(fpp3)       
+library(modeltime)    
+library(timetk)      
+library(parsnip)      
+library(rsample)      
+library(cowplot)
 
 os = Sys.info()["sysname"]
 
@@ -24,16 +33,19 @@ if (os =="Linux")
                          sep = ";",dec = ",")
 
 
-
 dt1 <- as_tibble(data) %>% 
   mutate(Period = ymd_hms(X)) %>%
   select(-X) 
+#grafico do preço de fechamento
+
+ggplot(dt1, aes(x= Period, y = Close.1min))+
+  geom_line()
+
+
+#gráfico de retornos de log 
 
 price_xts <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
-
-
 plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="black")
-
 par(mfrow=c(1,1))
 
 #tentando remover as linhas que aparecem entre os dias 
@@ -56,61 +68,26 @@ ggplot(dt1_minusf15, aes(x = obs, y = Ret.1min)) +
   geom_line(color = "black", size = 1) +
   scale_x_continuous(breaks = label_positions, labels = label_times) +
   labs(x = "Tempo Mes/Dia/Hora/Minuto", y = "Retorno logaritmico",
-       title = "Serie temporal (linha entre os dias removida)")
+       title = "Serie temporal Petr4 2021 (linha entre os dias removida)")
+
+#dt1_minus15f remove todos os tempos de antes de 10:15 e depois de 17:45 para padronização do tempo
 
 
 #histograma e qxq plot
-hist(coredata(log_returns), breaks=50, main="Histogram of Log Returns", xlab="Log Return", probability = TRUE)
-lines(density(coredata(log_returns)), col="blue", lwd=2)
-qqnorm(coredata(log_returns)); qqline(coredata(log_returns), col="red")
 
-# --- Step 4. Test for ARCH Effects ---
-# Using the ARCH LM test (e.g., ArchTest from FinTS package)
-arch_test <- ArchTest(coredata(log_returns), lags = 10)
-print(arch_test)
 
-# --- Step 5. Fit an ARCH and a GARCH Model ---
-# Define a GARCH(1,1) specification as in equations (5.22) and (5.23)
-garch_spec <- ugarchspec(
-  variance.model = list(model = "sGARCH", garchOrder = c(1, 1)),
-  mean.model     = list(armaOrder = c(0, 0), include.mean = FALSE),
-  distribution.model = "norm"  # You can try "std" for a Student's t distribution as well
-)
+hist(coredata(dt1_minusf15$Ret.1min), breaks=50, main="Histograma do log de retornos", xlab="Log de retornos", ylab= "Densidade", probability = TRUE,xlim = c(-0.05,0.05))
+lines(density(coredata(dt1_minusf15$Ret.1min)), col="blue", lwd=2)
 
-# Fit the model to the log returns
-garch_fit <- ugarchfit(spec = garch_spec, data = log_returns)
-print(garch_fit)
 
-# Extract conditional variance and standardized residuals
-garch_vol <- sigma(garch_fit)
-garch_resid <- residuals(garch_fit, standardize = TRUE)
+qqnorm(coredata(dt1$Ret.1min), main = "Qxq Plot dos retornos"); qqline(coredata(dt1$Ret.1min), col="red")
 
-# Plot the estimated conditional volatility
-plot(garch_vol, main="Estimated Conditional Volatility from GARCH(1,1)", col="darkgreen")
 
-# --- Step 6. Fit an EGARCH Model (Extension) ---
-egarch_spec <- ugarchspec(
-  variance.model = list(model = "eGARCH", garchOrder = c(1, 1)),
-  mean.model     = list(armaOrder = c(0, 0), include.mean = FALSE),
-  distribution.model = "norm"
-)
+#Plot do retorno logaritimo mais função de alto correlação e função parcial de alta correlação 
 
-egarch_fit <- ugarchfit(spec = egarch_spec, data = log_returns)
-print(egarch_fit)
+ggtsdisplay(dt1_minusf15$Ret.1min, main = "Retornos 1min brutos")
 
-# --- Step 7. (Optional) Fit a Stochastic Volatility Model ---
-# The 'stochvol' package estimates a basic stochastic volatility model.
-# This uses Bayesian estimation methods.
-sv_model <- svsample(coredata(log_returns))
-print(sv_model)
+#plot retorno log acf e pacf ao quadrado
 
-# Plot the latent volatility estimates
-plot(sv_model, main="Stochastic Volatility Estimates")
+ggtsdisplay(dt1_minusf15$Ret.1min^2, main = "Quadrado dos retornos 1min brutos ")
 
-# --- Step 8. Model Diagnostics ---
-# Check standardized residuals for autocorrelation and normality
-acf(garch_resid, main="ACF of Standardized Residuals")
-acf(garch_resid^2, main="ACF of Squared Standardized Residuals")
-qqnorm(garch_resid); qqline(garch_resid, col="red")
-
-    
