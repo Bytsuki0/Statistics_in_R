@@ -38,15 +38,19 @@ dt1 <- as_tibble(data) %>%
   select(-X) 
 #grafico do preço de fechamento
 
-ggplot(dt1, aes(x= Period, y = Close.1min))+
-  geom_line()
+ggplot(dt1, aes(x= Period, y = Close.1min), )+
+  geom_line()+
+  labs(title = "Valor de fechamento Petr4 2021 primeiro semestre")+
+  xlab("Periodo Jan a Jul 2021")+
+  ylab("Valor de fechamento")
 
 
 #gráfico de retornos de log 
 
 price_xts <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
-plot(price_xts, main="PETR4 Price (1-min data)", ylab="Price", col="black")
+plot(price_xts, main="PETR4 Preço retorno 1min 2021", ylab="Preço", col="black")
 par(mfrow=c(1,1))
+
 
 #tentando remover as linhas que aparecem entre os dias 
 
@@ -72,22 +76,36 @@ ggplot(dt1_minusf15, aes(x = obs, y = Ret.1min)) +
 
 #dt1_minus15f remove todos os tempos de antes de 10:15 e depois de 17:45 para padronização do tempo
 
-
 #histograma e qxq plot
 
 
 hist(coredata(dt1_minusf15$Ret.1min), breaks=50, main="Histograma do log de retornos", xlab="Log de retornos", ylab= "Densidade", probability = TRUE,xlim = c(-0.05,0.05))
 lines(density(coredata(dt1_minusf15$Ret.1min)), col="blue", lwd=2)
-
-
 qqnorm(coredata(dt1$Ret.1min), main = "Qxq Plot dos retornos"); qqline(coredata(dt1$Ret.1min), col="red")
-
 
 #Plot do retorno logaritimo mais função de alto correlação e função parcial de alta correlação 
 
 ggtsdisplay(dt1_minusf15$Ret.1min, main = "Retornos 1min brutos")
 
+
 #plot retorno log acf e pacf ao quadrado
 
 ggtsdisplay(dt1_minusf15$Ret.1min^2, main = "Quadrado dos retornos 1min brutos ")
+
+
+#identificação de outliers 
+
+boxplot(coredata(dt1$Ret.1min), main = "Boxplot retornos Petr4")
+dt1_filter <- dt1_minusf15 %>% 
+  filter(Ret.1min > -0.03) %>%
+  filter(Ret.1min < 0.03)%>%
+  na.omit(dt1_minusf15)
+  
+
+#plot retorno filtrado para outliers 
+
+ggtsdisplay(dt1_filter$Ret.1min, main = "Retornos 1min brutos")
+ggtsdisplay(dt1_filter$Ret.1min^2, main = "Quadrado dos retornos 1min brutos ")
+boxplot(coredata(dt1_filter$Ret.1min), main = "Boxplot retornos Petr4")
+
 
