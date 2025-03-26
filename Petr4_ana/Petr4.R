@@ -1,6 +1,7 @@
 library(dplyr)
 library(ggplot2)
 library(tidyr)
+library(zoo)
 library(xts)
 library(forecast)
 library(lubridate)
@@ -102,14 +103,14 @@ dt1_filter <- dt1_minusf15 %>%
   na.omit(dt1_minusf15)
   
 
-#plot retorno filtrado para outliers 
+#plot retorno filtrado para outliers muito grandes
 
 ggtsdisplay(dt1_filter$Ret.1min, main = "Retornos 1min brutos")
 ggtsdisplay(dt1_filter$Ret.1min^2, main = "Quadrado dos retornos 1min brutos ")
 boxplot(coredata(dt1_filter$Ret.1min), main = "Boxplot retornos Petr4")
 
 
-#filtrando lags para teste
+#filtrando lags para teste Acf e Pacf
 
 n = 5
 log_diff_18 <- diff(log(dt1_minusf15$Close.1min), lag = n)
@@ -123,4 +124,17 @@ teste <- teste %>%
 
 ggtsdisplay(teste$Retornos, main = "Retornos 1min brutos")
 ggtsdisplay(teste$Retornos^2, main = "Quadrado dos retornos 1min brutos ")
+
+
+#media movel não obtive muita informação
+
+ggplot(dt1_filter, aes(x = obs, y = Ret.1min)) +
+  geom_line(color = "black", size = 1, alpha = 0.4) +  # raw returns (with some transparency)
+  geom_smooth(method = "loess", span = 0.0001, se = FALSE, color = "darkgreen", size = 1.2) +
+  scale_x_continuous(breaks = label_positions, labels = label_times) +
+  labs(x = "Tempo Mes/Dia/Hora/Minuto", y = "Retorno logaritmico",
+       title = "Série Temporal PETR4 2021 1-min com Suavização LOESS") +
+  theme_minimal()
+
+
 
