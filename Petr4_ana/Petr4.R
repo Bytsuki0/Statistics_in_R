@@ -109,3 +109,18 @@ ggtsdisplay(dt1_filter$Ret.1min^2, main = "Quadrado dos retornos 1min brutos ")
 boxplot(coredata(dt1_filter$Ret.1min), main = "Boxplot retornos Petr4")
 
 
+#filtrando lags para teste
+
+n = 5
+log_diff_18 <- diff(log(dt1_minusf15$Close.1min), lag = n)
+
+teste <- data.frame(Retornos = log_diff_18, Periodo = dt1_minusf15$Period[-c(1:n)])
+
+teste <- teste %>%
+  filter(Retornos > -0.03)%>%
+  filter(Retornos < 0.03)%>%
+  na.omit(teste)
+
+ggtsdisplay(teste$Retornos, main = "Retornos 1min brutos")
+ggtsdisplay(teste$Retornos^2, main = "Quadrado dos retornos 1min brutos ")
+
