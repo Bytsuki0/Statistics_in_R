@@ -110,3 +110,46 @@ plot(sv_fit, param = "mu")
 plot(sv_fit, param = "phi")
 plot(sv_fit, param = "sigma")
 plot(sv_fit, param = "nu")
+
+# Construir dataframe com componentes de volatilidade
+volatility_components <- data.frame(
+  date = index(ret.1min),
+  returns = as.numeric(ret.1min),
+  sv_vol = sv_vol_mean,
+  stringsAsFactors = FALSE
+)
+
+# Identificar períodos de alta volatilidade (top 5%)
+high_vol_periods <- volatility_components %>%
+  as_tibble() %>%
+  mutate(date = as.POSIXct(date)) %>%
+  filter(sv_vol > quantile(sv_vol, 0.95)) %>%
+  arrange(date)
+
+cat("\nPeríodos de volatilidade mais elevada (top 5%):\n")
+print(head(high_vol_periods, 10))
+
+# Resumo estatístico da volatilidade por hora do dia
+vol_hour_summary <- volatility_components %>%
+  as_tibble() %>%
+  mutate(date = as.POSIXct(date),
+         hour = hour(date)) %>%
+  group_by(hour) %>%
+  summarise(mean_vol = mean(sv_vol),
+            median_vol = median(sv_vol),
+            max_vol = max(sv_vol)) %>%
+  arrange(desc(mean_vol))
+
+cat("\nVolatilidade média por hora do dia:\n")
+print(vol_hour_summary)
+
+cat("\nEstatísticas descritivas da volatilidade estimada:\n")
+summary(volatility_components$sv_vol)
+
+par(mfrow=c(1,1))
+hist(volatility_components$sv_vol, breaks=50, 
+     main="Distribuição da Volatilidade Estocástica", 
+     xlab="Volatilidade", col="lightblue")
+
+# Salvar resultados para uso futuro
+save(sv_fit, vol_xts, volatility_components, file = "PETR4_stochastic_volatility_results.RData")
