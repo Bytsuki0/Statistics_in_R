@@ -44,6 +44,7 @@ ret.1min <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
 
 # Teste ADF e visualizações iniciais
 tseries::adf.test(ret.1min)
+par(mfrow=c(2,2))
 plot.ts(ret.1min)
 boxplot(as.double(ret.1min))
 
@@ -60,11 +61,13 @@ boxplot(as.double(ret.1min))
 tseries::adf.test(ret.1min) 
 
 # Gráfico de retornos
+
+par(mfrow=c(1,1))
 plot(ret.1min, main="PETR4 Preço retorno 1min 2021", ylab="Preço", col="black")
 
 
 # Converter para vetor numérico
-ret_vec <- as.numeric(ret.1min)
+ret_vec <- as.numeric(ret.1min[1:5000])
 sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
 
 par(mfrow=c(2,2))
@@ -75,17 +78,17 @@ plot(sv_fit, showobs = FALSE)
 
 df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
 sv_vol_mean <- exp(df_vol / 2)
-vol_xts <- xts(sv_vol_mean, order.by = dt1$Period)
+vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
 
 
 # Gráficos dos retornos e volatilidade estimada
 par(mfrow=c(2,1))
-plot(ret.1min, main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
+plot(ret.1min[1:5000], main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
 plot(vol_xts, main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
      ylab="Volatilidade", col="blue")
 
 # Calcular volatilidade realizada (janela de 30 minutos)
-realized_vol <- rollapply(ret.1min^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), 
+realized_vol <- rollapply(ret.1min[1:5000]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), 
                           by.column=TRUE, align="right")
 realized_vol <- na.omit(realized_vol)
 
@@ -96,8 +99,8 @@ plot(vol_xts, col="blue", main ="Volatilidade Estocástica", ylab="Volatilidade"
 
 # Análise de clustering de volatilidade
 par(mfrow=c(2,1))
-acf(abs(ret_vec), main="ACF dos Retornos Absolutos")
-pacf(abs(ret_vec), main="PACF dos Retornos Absolutos")
+acf(abs(ret_vec[1:5000]), main="ACF dos Retornos Absolutos")
+pacf(abs(ret_vec[1:5000]), main="PACF dos Retornos Absolutos")
 
 cat("\nTeste ARCH LM para efeitos ARCH:\n")
 ArchTest(ret_vec, lags=10)
