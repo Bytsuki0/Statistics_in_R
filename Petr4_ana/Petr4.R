@@ -64,7 +64,7 @@ plot(ret.1min, main="PETR4 Preço retorno 1min 2021", ylab="Preço", col="black"
 
 
 # Converter para vetor numérico
-ret_vec <- as.numeric(ret.1min[1:5000])
+ret_vec <- as.numeric(ret.1min)
 sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
 
 par(mfrow=c(2,2))
@@ -75,13 +75,13 @@ plot(sv_fit, showobs = FALSE)
 
 df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
 sv_vol_mean <- exp(df_vol / 2)
-vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
+vol_xts <- xts(sv_vol_mean, order.by = dt1$Period)
 
 
 # Gráficos dos retornos e volatilidade estimada
 par(mfrow=c(2,1))
-plot(ret.1min[1:1000], main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
-plot(vol_xts[1:1000], main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
+plot(ret.1min, main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
+plot(vol_xts, main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
      ylab="Volatilidade", col="blue")
 
 # Calcular volatilidade realizada (janela de 30 minutos)
@@ -89,12 +89,10 @@ realized_vol <- rollapply(ret.1min^2, width=30, FUN=function(x) sqrt(252*390*mea
                           by.column=TRUE, align="right")
 realized_vol <- na.omit(realized_vol)
 
-par(mfrow=c(1,1))
-plot(realized_vol, main="Comparação de Volatilidades", 
-     ylab="Volatilidade", col="red")
-lines(vol_xts[index(realized_vol)], col="blue")
-legend("topright", legend=c("Volatilidade Realizada", "Volatilidade Estocástica"), 
-       col=c("red", "blue"), lty=1)
+par(mfrow=c(2,1))
+plot(realized_vol, main="Volatilidade realizada", ylab="Volatilidade", col="red")
+
+plot(vol_xts, col="blue", main ="Volatilidade Estocástica", ylab="Volatilidade" )
 
 # Análise de clustering de volatilidade
 par(mfrow=c(2,1))
@@ -110,3 +108,6 @@ plot(sv_fit, param = "mu")
 plot(sv_fit, param = "phi")
 plot(sv_fit, param = "sigma")
 plot(sv_fit, param = "nu")
+
+
+
