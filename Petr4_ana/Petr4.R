@@ -64,71 +64,156 @@ tseries::adf.test(ret.1min)
 
 par(mfrow=c(1,1))
 plot(ret.1min, main="PETR4 Preço retorno 1min 2021", ylab="Preço", col="black")
-position = c(0,idx_max)
 
 
-for(i in 1:2){
-  # Converter para vetor numérico
-  max = position[i]+5000
-  ret_vec <- as.numeric(ret.1min[position[i]:max])
-  sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
+# Converter para vetor numérico
+ret_vec <- as.numeric(ret.1min[1:5000])
+sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
 
-  par(mfrow=c(2,2))
-  plot(sv_fit, showobs = FALSE)
+par(mfrow=c(2,2))
+plot(sv_fit, showobs = FALSE)
 
-  # Extrair volatilidade estimada (média dos draws)
+# Extrair volatilidade estimada (média dos draws)
 
 
-  df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
-  sv_vol_mean <- exp(df_vol / 2)
-  vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
+df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
+sv_vol_mean <- exp(df_vol / 2)
+vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
 
 
-  # Gráficos dos retornos e volatilidade estimada
-  par(mfrow=c(2,1))
-  plot(ret.1min[1:5000], main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
-  plot(vol_xts, main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
-      ylab="Volatilidade", col="blue")
+# Gráficos dos retornos e volatilidade estimada
+par(mfrow=c(2,1))
+plot(ret.1min[1:5000], main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
+plot(vol_xts, main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
+     ylab="Volatilidade", col="blue")
 
-  # Calcular volatilidade realizada (janela de 30 minutos)
-  realized_vol <- rollapply(ret.1min[1:5000]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), 
-                            by.column=TRUE, align="right")
-  realized_vol <- na.omit(realized_vol)
+# Calcular volatilidade realizada
+realized_vol <- rollapply(ret.1min[1:5000]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), 
+                          by.column=TRUE, align="right")
+realized_vol <- na.omit(realized_vol)
 
-  par(mfrow=c(2,1))
-  plot(realized_vol, main="Volatilidade realizada", ylab="Volatilidade", col="red")
+par(mfrow=c(2,1))
+plot(realized_vol, main="Volatilidade realizada", ylab="Volatilidade", col="red")
 
-  plot(vol_xts, col="blue", main ="Volatilidade Estocástica", ylab="Volatilidade" )
+plot(vol_xts, col="blue", main ="Volatilidade Estocástica", ylab="Volatilidade" )
 
-  # Análise de clustering de volatilidade
-  par(mfrow=c(2,1))
-  acf(abs(ret_vec[1:5000]), main="ACF dos Retornos Absolutos")
-  pacf(abs(ret_vec[1:5000]), main="PACF dos Retornos Absolutos")
+# Análise de clustering de volatilidade
+par(mfrow=c(2,1))
+acf(abs(ret_vec[1:5000]), main="ACF dos Retornos Absolutos")
+pacf(abs(ret_vec[1:5000]), main="PACF dos Retornos Absolutos")
 
-  cat("\nTeste ARCH LM para efeitos ARCH:\n")
-  ArchTest(ret_vec, lags=10)
+cat("\nTeste ARCH LM para efeitos ARCH:\n")
+ArchTest(ret_vec, lags=10)
 
-  #separando os parametros
+#separando os parametros
 
-  params_mat <- as.matrix(sv_fit$para)
-  params_df <- as_tibble(params_mat)
-  params_df <- params_df %>% select(-any_of(c("nu", "rho")))  
+params_mat <- as.matrix(sv_fit$para)
+params_df <- as_tibble(params_mat)
+params_df <- params_df %>% select(-any_of(c("nu", "rho")))  
 
-  # Histograma dos parametros mu sigma e phi
+# Histograma dos parametros mu sigma e phi
 
-  par(mfrow = c(2,2))
-  hist(params_df[[1]], main = "Posterior de mu", xlab = "mu", breaks = 50)
-  hist(params_df[[2]], main = "Posterior de phi", xlab = "phi", breaks = 50)
-  hist(params_df[[3]], main = "Posterior de sigma", xlab = "sigma", breaks = 50)
+par(mfrow = c(2,2))
+hist(params_df[[1]], main = "Posterior de mu", xlab = "mu", breaks = 50)
+hist(params_df[[2]], main = "Posterior de phi", xlab = "phi", breaks = 50)
+hist(params_df[[3]], main = "Posterior de sigma", xlab = "sigma", breaks = 50)
 
-  df_long <- pivot_longer(params_df, cols = everything(),
-                          names_to = "param", values_to = "value")
+df_long <- pivot_longer(params_df, cols = everything(),
+                         names_to = "param", values_to = "value")
 
-  ggplot(df_long, aes(x = value)) +
-    geom_histogram(bins = 50, fill = "skyblue", color = "black") +
-    facet_wrap(~param, scales = "free", ncol = 2) +
-    labs(title = "Distribuições Posteriores dos Parâmetros",
-        x = "Valor", y = "Frequência") +
-    theme_minimal()
+ggplot(df_long, aes(x = value)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black") +
+  facet_wrap(~param, scales = "free", ncol = 2) +
+  labs(title = "Distribuições Posteriores dos Parâmetros",
+       x = "Valor", y = "Frequência") +
+  theme_minimal()
 
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#divisão entre primeira e segunda parte depois da queda
+
+# Converter para vetor numérico
+max = idx_max+5000
+ret_vec2 <- as.numeric(ret.1min[idx_max:max])
+sv_fit2 <- svsample(ret_vec, draws = 5000, burnin = 1000)
+
+par(mfrow=c(2,2))
+plot(sv_fit2, showobs = FALSE)
+
+# Extrair volatilidade estimada (média dos draws)
+
+period = idx_max+4999
+df_vol2 <- data.frame(volatility = sv_fit2[["latent0"]][[1]])
+sv_vol_mean2 <- exp(df_vol2 / 2)
+vol_xts2 <- xts(sv_vol_mean2, order.by = dt1$Period[idx_max:period])
+
+
+# Gráficos dos retornos e volatilidade estimada
+par(mfrow=c(2,1))
+plot(ret.1min[idx_max:period], main="PETR4 Retornos 1min 2021", ylab="Retorno", col="black")
+plot(vol_xts2, main="PETR4 Volatilidade Estocástica Estimada 1min 2021", 
+    ylab="Volatilidade", col="blue")
+
+# Calcular volatilidade realizada
+realized_vol <- rollapply(ret.1min[idx_max:period]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), 
+                          by.column=TRUE, align="right")
+realized_vol <- na.omit(realized_vol)
+
+par(mfrow=c(2,1))
+plot(realized_vol, main="Volatilidade realizada", ylab="Volatilidade", col="red")
+
+plot(vol_xts2, col="blue", main ="Volatilidade Estocástica", ylab="Volatilidade" )
+
+# Análise de clustering de volatilidade
+
+
+par(mfrow=c(2,1))
+acf(abs(ret_vec2[1:5000]), main="ACF dos Retornos Absolutos")
+pacf(abs(ret_vec2[1:5000]), main="PACF dos Retornos Absolutos")
+
+cat("\nTeste ARCH LM para efeitos ARCH:\n")
+ArchTest(ret_vec2, lags=10)
+
+#separando os parametros
+
+params_mat2 <- as.matrix(sv_fit2$para)
+params_df2 <- as_tibble(params_mat2)
+params_df2 <- params_df2 %>% select(-any_of(c("nu", "rho")))  
+
+# Histograma dos parametros mu sigma e phi
+
+par(mfrow = c(2,2))
+hist(params_df2[[1]], main = "Posterior de mu", xlab = "mu", breaks = 50)
+hist(params_df2[[2]], main = "Posterior de phi", xlab = "phi", breaks = 50)
+hist(params_df2[[3]], main = "Posterior de sigma", xlab = "sigma", breaks = 50)
+
+df_long2 <- pivot_longer(params_df2, cols = everything(),
+                        names_to = "param", values_to = "value")
+
+ggplot(df_long2, aes(x = value)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black") +
+  facet_wrap(~param, scales = "free", ncol = 2) +
+  labs(title = "Distribuições Posteriores dos Parâmetros",
+      x = "Valor", y = "Frequência") +
+  theme_minimal()
