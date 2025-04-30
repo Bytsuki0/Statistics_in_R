@@ -1,0 +1,192 @@
+---
+title: "Análise de Volatilidade Estocástica e Retornos Intradiários - PETR4"
+author: "Gustavo Vitor da Silva"
+format: html
+editor: visual
+---
+
+## Introdução
+
+Este relatório explora o comportamento da volatilidade e dos retornos da ação PETR4 ao longo de 2021, com dados de frequência de 1 minuto extraídos da plataforma MetaTrader. Utilizamos modelos de volatilidade estocástica via `stochvol`, comparações com volatilidade realizada, e examinamos propriedades de clustering de volatilidade.
+
+## Leitura e Pré-processamento dos Dados
+
+-   Remoção de janelas de abertura com menor liquidez (10:00 até 10:20) e dos últimos minutos de pregão (após 16:55).
+-   Exclusão do feriado em 17/02/2021.
+-   Conversão para série temporal (`xts`) e remoção de outliers extremos substituindo-os pela observação anterior.
+
+```{r}
+echo=FALSE
+  library(dplyr)
+  library(ggplot2)
+  library(tidyr)
+  library(zoo)
+  library(xts)
+  library(forecast)
+  library(lubridate)
+  library(PerformanceAnalytics)
+  library(highfrequency)         
+  library(quantmod)    
+  library(tseries)     
+  library(FinTS)       
+  library(stochvol)  
+  library(fpp2)     
+  library(fpp3)       
+  #library(modeltime)    
+  #library(timetk)      
+  library(parsnip)      
+  library(rsample)      
+  library(cowplot)
+```
+
+```{r}
+os <- Sys.info()["sysname"]
+if(os == "Windows") {
+  dt.intra <- read.csv("D:/Code/R_studio/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+                       header = TRUE, stringsAsFactors = FALSE, 
+                       sep = ";", dec = ",")
+} else if(os == "Linux") {
+  dt.intra <- read.csv("~/Documentos/Coding/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+                       header = TRUE, stringsAsFactors = FALSE, 
+                       sep = ";", dec = ",")
+}
+
+dt1 <- as_tibble(dt.intra) %>% 
+  mutate(Period = ymd_hms(X)) %>%
+  select(-X) %>% 
+  filter(!(hour(Period) == 10 & minute(Period) < 20)) %>% 
+  filter(hour(Period) < 17) %>% 
+  filter(!(hour(Period) == 16 & minute(Period) > 54)) %>% 
+  filter(!(date(Period) == "2021-02-17")) %>% 
+  arrange(Period)
+
+ret.1min <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
+
+```
+
+## Observação inicial
+
+```{r}
+plot(ret.1min, main="PETR4 Retornos 1min", col="black")
+boxplot(as.double(ret.1min), main="Boxplot dos Retornos 1min")
+```
+
+## Identificação e remoçãode Outliers
+
+Observamos os Outliers presentes nos valores maximos e minimos dos retornos. Com isso os removemos observamos novamente os gráficos de boxplot e a série temporal.
+
+```{r}
+warning=FALSE
+message=FALSE
+# Teste ADF e visualizações iniciais
+par(mfrow=c(1,1))
+
+# Identificar outliers
+idx_min <- which.min(as.double(ret.1min))
+idx_max <- which.max(as.double(ret.1min))
+
+# Substituir outliers pela observação anterior
+ret.1min[idx_min] <- ret.1min[idx_min - 1]
+ret.1min[idx_max] <- ret.1min[idx_max - 1]
+
+plot.ts(ret.1min)
+boxplot(as.double(ret.1min))
+
+```
+
+## Testes de Estacionariedade
+
+```{r}
+tseries::adf.test(ret.1min)
+```
+
+Resultado mostra que os retornos são estacionários, o que é esperado para séries de retornos.
+
+## Ajuste do Modelo de Volatilidade Estocástica
+
+Ajustamos um modelo `svsample()` a dois blocos temporais:
+
+1.  Primeiros 5000 pontos antes do maior retorno absoluto negativo.
+2.  5000 pontos após o maior retorno (queda abrupta) para comparar regimes.
+
+```{r}
+echo=FALSE
+warning=FALSE
+message=FALSE
+
+set.seed(123)
+ret_vec <- as.numeric(ret.1min[1:5000])
+sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
+
+max = idx_max+5000
+ret_vec2 <- as.numeric(ret.1min[idx_max:max])
+sv_fit2 <- svsample(ret_vec, draws = 5000, burnin = 1000)
+
+```
+
+```{r}
+plot(sv_fit, showobs = FALSE)
+title(main = "Pré queda")
+plot(sv_fit2, showobs = FALSE)
+title(main = "Pós queda")
+```
+
+## Comparação com Volatilidade Realizada
+
+```{r}
+df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
+sv_vol_mean <- exp(df_vol / 2)
+vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
+realized_vol <- rollapply(ret.1min[1:5000]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), by.column=TRUE, align="right")
+realized_vol <- na.omit(realized_vol)
+```
+
+```{r}
+par(mfrow=c(2,1))
+plot(realized_vol, main="Volatilidade Realizada")
+plot(vol_xts, main="Volatilidade Estocástica Estimada")
+```
+
+**Insight:** Ambas as volatilidades capturam padrões semelhantes, porém a volatilidade estocástica suaviza ruídos de alta frequência, sendo mais adequada para modelagem de risco e precificação.
+
+## Cluster de Volatilidade
+
+```{r}
+acf(abs(ret_vec), main="ACF dos Retornos Absolutos")
+pacf(abs(ret_vec), main="PACF dos Retornos Absolutos")
+```
+
+**Insight:** Forte autocorrelação nos retornos absolutos indica *volatility clustering*, fenômeno típico em séries financeiras.
+
+## Teste ARCH LM
+
+```{r}
+ArchTest(ret_vec, lags = 10)
+```
+
+**Resultado:** Significativo — indicando presença de heterocedasticidade condicional.
+
+## Distribuições Posteriores dos Parâmetros
+
+```{r}
+ggplot(df_long, aes(x = value)) +
+  geom_histogram(bins = 50) +
+  facet_wrap(~param, scales = "free") +
+  theme_minimal()
+```
+
+**Interpretação:**
+
+-   `mu`: Média dos log-retornos.
+-   `phi`: Persistência da volatilidade — valores próximos de 1 indicam alta persistência.
+-   `sigma`: Volatilidade da volatilidade — mostra o quanto a variância latente oscila.
+
+## Comparação Antes e Depois da Queda
+
+Parâmetros do modelo após a queda indicam aumento em `sigma` e possível redução em `phi`, sugerindo maior instabilidade e menor persistência da volatilidade.
+
+## Próximos Passos
+
+-   Testar modelos com distribuição `t` para capturar caudas mais pesadas.
+-   Incorporar covariáveis exógenas como volume, notícias ou macrodados.
+-   Comparar com modelos GARCH para benchmarking.

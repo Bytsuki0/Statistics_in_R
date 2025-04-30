@@ -65,7 +65,7 @@ tseries::adf.test(ret.1min)
 par(mfrow=c(1,1))
 plot(ret.1min, main="PETR4 Preço retorno 1min 2021", ylab="Preço", col="black")
 
-
+set.seed(123)
 # Converter para vetor numérico
 ret_vec <- as.numeric(ret.1min[1:5000])
 sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
