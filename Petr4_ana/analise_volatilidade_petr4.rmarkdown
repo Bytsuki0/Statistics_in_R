@@ -5,6 +5,8 @@ format: html
 editor: visual
 ---
 
+
+
 ## Introdução
 
 Este relatório explora o comportamento da volatilidade e dos retornos da ação PETR4 ao longo de 2021, com dados de frequência de 1 minuto extraídos da plataforma MetaTrader. Utilizamos modelos de volatilidade estocástica via `stochvol`, comparações com volatilidade realizada, e examinamos propriedades de clustering de volatilidade.
@@ -14,6 +16,8 @@ Este relatório explora o comportamento da volatilidade e dos retornos da ação
 -   Remoção de janelas de abertura com menor liquidez (10:00 até 10:20) e dos últimos minutos de pregão (após 16:55).
 -   Exclusão do feriado em 17/02/2021.
 -   Conversão para série temporal (`xts`) e remoção de outliers extremos substituindo-os pela observação anterior.
+
+
 
 ```{r load-packages, include=FALSE}
   library(dplyr)
@@ -63,16 +67,24 @@ ret.1min <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
 
 ```
 
+
+
 ## Observação inicial
+
+
 
 ```{r}
 plot(ret.1min, main="PETR4 Retornos 1min", col="black")
 boxplot(as.double(ret.1min), main="Boxplot dos Retornos 1min")
 ```
 
+
+
 ## Identificação e remoçãode Outliers
 
 Observamos os Outliers presentes nos valores maximos e minimos dos retornos. Com isso os removemos observamos novamente os gráficos de boxplot e a série temporal.
+
+
 
 ```{r}
 warning=FALSE
@@ -93,15 +105,23 @@ boxplot(as.double(ret.1min))
 
 ```
 
+
+
 ## Testes de Estacionariedade
+
+
 
 ```{r}
 tseries::adf.test(ret.1min)
 ```
 
+
+
 Resultado mostra que os retornos são estacionários, o que é esperado para séries de retornos.
 
 ## Analises de têndencias pré e pós queda
+
+
 
 ```{r}
 
@@ -163,12 +183,16 @@ acf(log_ret_vec[idx_min:p2], main = "ACF - Log-Retornos Pós queda", na.action =
 pacf(log_ret_vec[idx_min:p2], main = "PACF - Log-Retornos Pós queda", na.action = na.pass)
 ```
 
+
+
 ## Ajuste do Modelo de Volatilidade Estocástica
 
 Ajustamos um modelo `svsample()` a dois blocos temporais:
 
 1.  Primeiros 10000 pontos antes do maior retorno absoluto negativo.
 2.  10000 pontos após o maior retorno (queda abrupta) para comparar regimes.
+
+
 
 ```{r setup, include=FALSE}
 echo=FALSE
@@ -191,6 +215,8 @@ title(main = "Pré queda")
 plot(sv_fit2, showobs = FALSE)
 title(main = "Pós queda")
 ```
+
+
 
 Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principalmente nas distribuições normais de Mu, Phi e Sigma, onde podemos definir o que cada variavel nos diz como:
 
@@ -269,6 +295,8 @@ Após a grande queda observada em PETR4, estimamos um modelo de volatilidade est
 
 ## Comparação com Volatilidade Realizada
 
+
+
 ```{r}
 df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
 sv_vol_mean <- exp(df_vol / 2)
@@ -283,26 +311,38 @@ plot(realized_vol, main="Volatilidade Realizada")
 plot(vol_xts, main="Volatilidade Estocástica Estimada")
 ```
 
+
+
 **Insight:** Ambas as volatilidades capturam padrões semelhantes, porém a volatilidade estocástica suaviza ruídos de alta frequência, sendo mais adequada para modelagem de risco e precificação.
 
 ## Cluster de Volatilidade
+
+
 
 ```{r}
 acf(abs(ret_vec), main="ACF dos Retornos Absolutos")
 pacf(abs(ret_vec), main="PACF dos Retornos Absolutos")
 ```
 
+
+
 **Insight:** Forte autocorrelação nos retornos absolutos indica *clusteres de volatilidade*, fenômeno típico em séries financeiras.
 
 ## Teste ARCH LM
+
+
 
 ```{r}
 ArchTest(ret_vec, lags = 10)
 ```
 
+
+
 **Resultado:** Significativo — indicando presença de heterocedasticidade condicional.
 
 ## Distribuições Posteriores dos Parâmetros
+
+
 
 ```{r}
 echo=FALSE
@@ -347,6 +387,8 @@ ggplot(df_long2, aes(x = value)) +
   theme_minimal()
 ```
 
+
+
 **Interpretação:**
 
 -   `mu`: Média dos log-retornos.
@@ -362,3 +404,4 @@ Parâmetros do modelo após a queda indicam aumento em `sigma` e possível redu�
 -   Testar modelos com distribuição `t` para capturar caudas mais pesadas.
 -   Incorporar covariáveis exógenas como volume, notícias ou macrodados.
 -   Comparar com modelos GARCH para benchmarking.
+
