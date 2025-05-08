@@ -179,9 +179,16 @@ set.seed(123)
 ret_vec <- as.numeric(ret.1min[1:10000])
 sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
 
-max = idx_max+10000
-ret_vec2 <- as.numeric(ret.1min[idx_max:max])
-sv_fit2 <- svsample(ret_vec, draws = 5000, burnin = 1000)
+min = idx_max-2500
+max = idx_max+7500
+ret_vec2 <- as.numeric(ret.1min[min:max])
+sv_fit2 <- svsample(ret_vec2, draws = 5000, burnin = 1000)
+
+
+min2 = max+15000
+max2 = min2+10000
+ret_vec3 <- as.numeric(ret.1min[min2:max2])
+sv_fit3 <- svsample(ret_vec3, draws = 5000, burnin = 1000)
 
 ```
 
@@ -190,6 +197,8 @@ plot(sv_fit, showobs = FALSE)
 title(main = "Pré queda")
 plot(sv_fit2, showobs = FALSE)
 title(main = "Pós queda")
+plot(sv_fit3, showobs = FALSE)
+title(main = "Recuperação Pós queda")
 ```
 
 Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principalmente nas distribuições normais de Mu, Phi e Sigma, onde podemos definir o que cada variavel nos diz como:
