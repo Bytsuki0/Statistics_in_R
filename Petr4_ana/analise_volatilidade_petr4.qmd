@@ -146,12 +146,6 @@ message=FALSE
 log_ret_vec <- as.numeric(dados_xts$LogRet.1min)
 ret_vec <- as.numeric(dados_xts$Ret.1min)
 
-#adf_test <- adf.test(log_ret_vec)
-#print("Teste ADF para Log-Retornos:")
-#print(adf_test)
-#kpss_test <- kpss.test(log_ret_vec)
-#print("Teste KPSS para Log-Retornos:")
-#print(kpss_test)
 
 # Visualizando ACF e PACF
 par(mfrow = c(1, 2))
@@ -163,12 +157,40 @@ acf(log_ret_vec[idx_min:p2], main = "ACF - Log-Retornos Pós queda", na.action =
 pacf(log_ret_vec[idx_min:p2], main = "PACF - Log-Retornos Pós queda", na.action = na.pass)
 ```
 
+## 1. Objetivos
+
+Comparação das as funções de autocorrelação (ACF) e autocorrelação parcial (PACF) dos log-retornos intradiários de PETR4 **antes** e **depois** de uma queda da opção.
+
+## 2. Comportamento Geral
+
+Em ambos os períodos, a **ACF dos retornos** decai imediatamente para valores próximos de zero após o lag 0.
+
+#### Pré-Queda
+
+-   **ACF**: Queda abrupta após lag 0; todos os coeficientes dentro das bandas de confiança (\~±2/√T).\
+-   **PACF**:
+    -   **Lag 1**: Leve autocorrelação parcial negativa (\~–0.02).\
+
+    -   **Lags 5–20**: Pequenos “espasmos”, mas sem ultrapassar bandas, indicando ruído aleatório.
+-   **Pré-Queda:** Retornos se comportam como ruido branco com leve reversão imediata.
+
+#### Pós-Queda
+
+-   **ACF**: Mesma queda imediata; coeficientes insignificantes após lag 0.\
+-   **PACF**:
+    -   **Lag 1**: Reversão de preço mais pronunciada (\~–0.03), sinal de reação rápida de compradores da opção.\
+
+    -   **Lags 10–40**: Picos positivos e negativos sugerem padrões de liquidez intradiária possivelmente janelas de execução de algoritmos.
+-   1\. **Reversão de curtíssimo prazo** intensificada (lag 1 negativo).\
+    2.  **Microestrutura & Liquidez**: agrupamentos de ordens e padrões de execução visíveis em lags mais altos.
+
 ## Ajuste do Modelo de Volatilidade Estocástica
 
 Ajustamos um modelo `svsample()` a dois blocos temporais:
 
 1.  Primeiros 10000 pontos antes do maior retorno absoluto negativo.
-2.  10000 pontos após o maior retorno (queda abrupta) para comparar regimes.
+2.  10000 pontos após o menor retorno (queda abrupta) para comparar regimes.
+3.  15000 pontos após analise anterior 10000 mil pontos são analisados para observar a recuperação do mercado a uma queda bruta.
 
 ```{r setup, include=FALSE}
 echo=FALSE
@@ -247,34 +269,43 @@ Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principa
 
 ### O que podemos retirar das nossas observações
 
-Após a grande queda observada em PETR4, estimamos um modelo de volatilidade estocástica usando 10 000 observações subsequentes e constatamos que as distribuições a posteriori de **σ** (volatilidade da volatilidade) e **φ** (persistência) tornaram-se **menos concentradas** em torno dos valores médios pré-queda. Isso evidencia que, no regime pós-choque, há **maior incerteza** sobre (a) quão rapidamente a volatilidade reverte ao seu nível de equilíbrio e (b) a magnitude dos choques na volatilidade latente.
+Em particular, **μ** é a média de longo prazo da log-volatilidade, **φ** mede a persistência ou “memória” do processo, e **σ** quantifica a volatilidade da própria volatilidade.
 
-### 1. Implicações de φ menos concentrado
+------------------------------------------------------------------------
 
-1.  **Menor certeza sobre a persistência**\
-    Um φ com distribuição mais ampla indica que não há confiança clara de que choques passados em (h_t) continuem a influenciar fortemente o nível futuro de volatilidade.
+## Valores Estimados
 
-2.  **Regime de volatilidade transitória**\
-    A dispersão elevada sinaliza possível transição entre regimes de volatilidade — desta forma, o “memory effect” do processo se torna imprevisível.
+| Regime          | μ     | φ    | σ    |
+|-----------------|-------|------|------|
+| **Pré-queda**   | –13.8 | 0.97 | 0.16 |
+| **Pós-queda**   | –13.3 | 0.99 | 0.12 |
+| **Recuperação** | –14.4 | 0.98 | 0.11 |
 
-3.  **Previsões de risco mais amplas**\
-    Forecasts de intervalos dinâmicos (e.g. VaR) baseados em φ incerto geram bandas de confiança mais largas, refletindo menor segurança na persistência futura.
+------------------------------------------------------------------------
 
-### 2. Implicações de σ menos concentrado
+## Interpretação dos Parâmetros
 
-1.  **Volatilidade da volatilidade incerta**\
-    Uma σ com posterior mais dispersa revela incerteza na magnitude dos choques em (h_t), sugerindo que picos de volatilidade podem ser muito mais extremos ou moderados do que o modelo pré-queda sugeria.
+### 1. μ — Nível Médio de Longo Prazo
 
-2.  **Riscos extremos imprevisíveis**\
-    Como σ controla a variabilidade dos próprios choques de volatilidade, sua dispersão aumenta a probabilidade de eventos de cauda (*tail events*) inesperados.
+-   **Pré-queda (μ ≃ –13.8):** Nível médio moderado de log-volatilidade, indicando um mercado relativamente estável antes do choque.\
+-   **Pós-queda (μ ≃ –13.3):** Aumento em μ sinaliza que a volatilidade média se elevou após o choque, refletindo comportamento mais errático e risco incrementado.\
+-   **Recuperação (μ ≃ –14.4):** μ abaixo do nível pré-queda sugere um período de calmaria, com volatilidade média inferior ao patamar inicial
 
-3.  **Necessidade de hedge robusto**\
-    Para mitigar risco, adota-se hedge que contemple cenários de volatilidade superior ao patamar pré-queda, dada a incerteza elevada em σ.
+### 2. φ — Persistência (AR(1))
 
-## 3. Interpretações Combinadas
+-   **Pré-queda (φ ≃ 0.97):** Choques de volatilidade perduram vários minutos, caracterizando clusters de volatilidade típicos em séries financeiras.\
+-   **Pós-queda (φ ≃ 0.99):** Persistência extrema, indicando que o impacto do choque permanece durante longo período e reduz a capacidade de “esquecer” choques passados.\
+-   **Recuperação (φ ≃ 0.98):** Alta persistência, porém ligeiramente menor que no pós-queda, sinalizando retorno gradual a um regime menos grudado em choques passados.
 
--   **Pós-Queda: mais volátil e menos persistente**\
-    A conjugação de φ incerto e σ incerto sugere um mercado onde a volatilidade oscila abruptamente com memória curta, indicando potencial benefício de modelos de *regime-switching* ou de volatilidade local.
+### 3. σ — Volatilidade da Volatilidade
+
+-   **Pré-queda (σ ≃ 0.16):** Flutuações bruscas no nível latente de volatilidade, revelando instabilidade moderada na variância do processo.\
+-   **Pós-queda (σ ≃ 0.12):** Apesar do regime mais volátil, a dispersão das mudanças na volatilidade latente diminui, indicando choques relativamente menos extremos no pós-queda.\
+-   **Recuperação (σ ≃ 0.11):** Processo de volatilidade ainda mais estável, com menor amplitude de flutuações, corroborando o retorno a um regime de baixa incerteza.
+
+## Conclusão
+
+A análise dos parâmetros μ, φ e σ em diferentes regimes pós-queda revela mudanças profundas na dinâmica de risco de PETR4. Antes do choque, o mercado apresentava volatilidade moderada com alta instabilidade no processo latente. Após a queda, o aumento de μ e φ combinados com menor σ pautam um regime de alta persistência e volatilidade média elevada, porém com choques menos extremos. Na fase de recuperação, todos os parâmetros retornam a patamares de menor incerteza, indicando estabilização do mercado. Essas informações são cruciais para aprimorar modelos de previsão e estratégias de hedge em opções intradiárias.
 
 ## Comparação com Volatilidade Realizada
 
