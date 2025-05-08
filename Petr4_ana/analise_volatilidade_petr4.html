@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.5.41">
+<meta name="generator" content="quarto-1.5.57">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -212,6 +212,99 @@ alternative hypothesis: stationary</code></pre>
 </div>
 <p>Resultado mostra que os retornos são estacionários, o que é esperado para séries de retornos.</p>
 </section>
+<section id="analises-de-têndencias-pré-e-pós-queda" class="level2">
+<h2 class="anchored" data-anchor-id="analises-de-têndencias-pré-e-pós-queda">Analises de têndencias pré e pós queda</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>  dados_xts <span class="ot">&lt;-</span> <span class="fu">xts</span>(dt1[, <span class="fu">c</span>(<span class="st">"Close.1min"</span>, <span class="st">"Ret.1min"</span>)], <span class="at">order.by =</span> dt1<span class="sc">$</span>Period)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  idx_min <span class="ot">&lt;-</span> <span class="fu">which.min</span>(<span class="fu">as.double</span>(ret<span class="fl">.1</span>min))</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  idx_max <span class="ot">&lt;-</span> <span class="fu">which.max</span>(<span class="fu">as.double</span>(ret<span class="fl">.1</span>min))</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  dados_xts[idx_min] <span class="ot">&lt;-</span> dados_xts[idx_min <span class="sc">-</span> <span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in NextMethod(.Generic): número de itens para para substituir não é um
+múltiplo do comprimento do substituto</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>  dados_xts[idx_max] <span class="ot">&lt;-</span> dados_xts[idx_max <span class="sc">-</span> <span class="dv">1</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in NextMethod(.Generic): número de itens para para substituir não é um
+múltiplo do comprimento do substituto</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>  p2 <span class="ot">=</span> idx_min <span class="sc">+</span><span class="dv">10000</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>dados_xts<span class="sc">$</span>LogRet<span class="fl">.1</span>min <span class="ot">&lt;-</span> <span class="fu">log</span>(<span class="dv">1</span> <span class="sc">+</span> dados_xts<span class="sc">$</span>Ret<span class="fl">.1</span>min)</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>dados_xts <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(dados_xts)</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>calc_volatilidade_historica <span class="ot">&lt;-</span> <span class="cf">function</span>(retornos, <span class="at">janela =</span> <span class="dv">21</span>) {</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  vol_hist <span class="ot">&lt;-</span> <span class="fu">rollapply</span>(retornos, <span class="at">width =</span> janela, </span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>                        <span class="at">FUN =</span> <span class="cf">function</span>(x) <span class="fu">sd</span>(x, <span class="at">na.rm =</span> <span class="cn">TRUE</span>), </span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>                        <span class="at">by.column =</span> <span class="cn">TRUE</span>, </span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>                        <span class="at">align =</span> <span class="st">"right"</span>)</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(vol_hist)</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>dados_xts<span class="sc">$</span>Vol_Hist_30min <span class="ot">&lt;-</span> <span class="fu">calc_volatilidade_historica</span>(dados_xts<span class="sc">$</span>LogRet<span class="fl">.1</span>min, <span class="at">janela =</span> <span class="dv">30</span>)</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>minutos_ano <span class="ot">&lt;-</span> <span class="dv">252</span> <span class="sc">*</span> <span class="dv">390</span></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>dados_xts<span class="sc">$</span>Vol_Anual <span class="ot">&lt;-</span> dados_xts<span class="sc">$</span>Vol_Hist_30min <span class="sc">*</span> <span class="fu">sqrt</span>(minutos_ano)</span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>volhist30min<span class="ot">=</span>dados_xts<span class="sc">$</span>Vol_Hist_30min</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(volhist30min[<span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>], <span class="at">main =</span> <span class="st">"Volatilidade (Janela 30 min) Pré queda"</span>, <span class="at">xlab =</span> <span class="st">"Data"</span>, <span class="at">ylab =</span> <span class="st">"Volatilidade"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(volhist30min[idx_min<span class="sc">:</span>p2], <span class="at">main =</span> <span class="st">"Volatilidade (Janela 30 min) Pós queda"</span>, <span class="at">xlab =</span> <span class="st">"Data"</span>, <span class="at">ylab =</span> <span class="st">"Volatilidade"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>warning<span class="ot">=</span><span class="cn">FALSE</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>message<span class="ot">=</span><span class="cn">FALSE</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>log_ret_vec <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(dados_xts<span class="sc">$</span>LogRet<span class="fl">.1</span>min)</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>ret_vec <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(dados_xts<span class="sc">$</span>Ret<span class="fl">.1</span>min)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a><span class="co">#adf_test &lt;- adf.test(log_ret_vec)</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a><span class="co">#print("Teste ADF para Log-Retornos:")</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a><span class="co">#print(adf_test)</span></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="co">#kpss_test &lt;- kpss.test(log_ret_vec)</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="co">#print("Teste KPSS para Log-Retornos:")</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a><span class="co">#print(kpss_test)</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Visualizando ACF e PACF</span></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a><span class="fu">acf</span>(log_ret_vec[<span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>], <span class="at">main =</span> <span class="st">"ACF - Log-Retornos Pré queda"</span>, <span class="at">na.action =</span> na.pass)</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a><span class="fu">pacf</span>(log_ret_vec[<span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>], <span class="at">main =</span> <span class="st">"PACF - Log-Retornos Pré queda"</span>, <span class="at">na.action =</span> na.pass)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">acf</span>(log_ret_vec[idx_min<span class="sc">:</span>p2], <span class="at">main =</span> <span class="st">"ACF - Log-Retornos Pós queda"</span>, <span class="at">na.action =</span> na.pass)</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">pacf</span>(log_ret_vec[idx_min<span class="sc">:</span>p2], <span class="at">main =</span> <span class="st">"PACF - Log-Retornos Pós queda"</span>, <span class="at">na.action =</span> na.pass)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-7-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
 <section id="ajuste-do-modelo-de-volatilidade-estocástica" class="level2">
 <h2 class="anchored" data-anchor-id="ajuste-do-modelo-de-volatilidade-estocástica">Ajuste do Modelo de Volatilidade Estocástica</h2>
 <p>Ajustamos um modelo <code>svsample()</code> a dois blocos temporais:</p>
@@ -220,51 +313,21 @@ alternative hypothesis: stationary</code></pre>
 <li>10000 pontos após o maior retorno (queda abrupta) para comparar regimes.</li>
 </ol>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>echo<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>warning<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>message<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>ret_vec <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(ret<span class="fl">.1</span>min[<span class="dv">1</span><span class="sc">:</span><span class="dv">10000</span>])</span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>sv_fit <span class="ot">&lt;-</span> <span class="fu">svsample</span>(ret_vec, <span class="at">draws =</span> <span class="dv">5000</span>, <span class="at">burnin =</span> <span class="dv">1000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Argument 'y' (data vector) contains values very close to zero. I am applying an offset constant of size 1.08288402703973e-07 to do the auxiliary mixture sampling. If you want to avoid this, you might consider de-meaning the returns before calling this function.</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Done!</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Summarizing posterior draws...</code></pre>
-</div>
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>max <span class="ot">=</span> idx_max<span class="sc">+</span><span class="dv">10000</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>ret_vec2 <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(ret<span class="fl">.1</span>min[idx_max<span class="sc">:</span>max])</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>sv_fit2 <span class="ot">&lt;-</span> <span class="fu">svsample</span>(ret_vec, <span class="at">draws =</span> <span class="dv">5000</span>, <span class="at">burnin =</span> <span class="dv">1000</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Argument 'y' (data vector) contains values very close to zero. I am applying an offset constant of size 1.08288402703973e-07 to do the auxiliary mixture sampling. If you want to avoid this, you might consider de-meaning the returns before calling this function.</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Done!</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Summarizing posterior draws...</code></pre>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(sv_fit, <span class="at">showobs =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="at">main =</span> <span class="st">"Pré queda"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(sv_fit, <span class="at">showobs =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="at">main =</span> <span class="st">"Pré queda"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(sv_fit2, <span class="at">showobs =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="at">main =</span> <span class="st">"Pós queda"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(sv_fit2, <span class="at">showobs =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="at">main =</span> <span class="st">"Pós queda"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-6-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-8-2.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -352,20 +415,20 @@ A conjugação de φ incerto e σ incerto sugere um mercado onde a volatilidade 
 <section id="comparação-com-volatilidade-realizada" class="level2">
 <h2 class="anchored" data-anchor-id="comparação-com-volatilidade-realizada">Comparação com Volatilidade Realizada</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>df_vol <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">volatility =</span> sv_fit[[<span class="st">"latent0"</span>]][[<span class="dv">1</span>]])</span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>sv_vol_mean <span class="ot">&lt;-</span> <span class="fu">exp</span>(df_vol <span class="sc">/</span> <span class="dv">2</span>)</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>vol_xts <span class="ot">&lt;-</span> <span class="fu">xts</span>(sv_vol_mean, <span class="at">order.by =</span> dt1<span class="sc">$</span>Period[<span class="dv">1</span><span class="sc">:</span><span class="dv">5000</span>])</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>realized_vol <span class="ot">&lt;-</span> <span class="fu">rollapply</span>(ret<span class="fl">.1</span>min[<span class="dv">1</span><span class="sc">:</span><span class="dv">5000</span>]<span class="sc">^</span><span class="dv">2</span>, <span class="at">width=</span><span class="dv">30</span>, <span class="at">FUN=</span><span class="cf">function</span>(x) <span class="fu">sqrt</span>(<span class="dv">252</span><span class="sc">*</span><span class="dv">390</span><span class="sc">*</span><span class="fu">mean</span>(x)), <span class="at">by.column=</span><span class="cn">TRUE</span>, <span class="at">align=</span><span class="st">"right"</span>)</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>realized_vol <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(realized_vol)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>df_vol <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">volatility =</span> sv_fit[[<span class="st">"latent0"</span>]][[<span class="dv">1</span>]])</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>sv_vol_mean <span class="ot">&lt;-</span> <span class="fu">exp</span>(df_vol <span class="sc">/</span> <span class="dv">2</span>)</span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>vol_xts <span class="ot">&lt;-</span> <span class="fu">xts</span>(sv_vol_mean, <span class="at">order.by =</span> dt1<span class="sc">$</span>Period[<span class="dv">1</span><span class="sc">:</span><span class="dv">5000</span>])</span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>realized_vol <span class="ot">&lt;-</span> <span class="fu">rollapply</span>(ret<span class="fl">.1</span>min[<span class="dv">1</span><span class="sc">:</span><span class="dv">5000</span>]<span class="sc">^</span><span class="dv">2</span>, <span class="at">width=</span><span class="dv">30</span>, <span class="at">FUN=</span><span class="cf">function</span>(x) <span class="fu">sqrt</span>(<span class="dv">252</span><span class="sc">*</span><span class="dv">390</span><span class="sc">*</span><span class="fu">mean</span>(x)), <span class="at">by.column=</span><span class="cn">TRUE</span>, <span class="at">align=</span><span class="st">"right"</span>)</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>realized_vol <span class="ot">&lt;-</span> <span class="fu">na.omit</span>(realized_vol)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>))</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(realized_vol, <span class="at">main=</span><span class="st">"Volatilidade Realizada"</span>)</span>
-<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(vol_xts, <span class="at">main=</span><span class="st">"Volatilidade Estocástica Estimada"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>))</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(realized_vol, <span class="at">main=</span><span class="st">"Volatilidade Realizada"</span>)</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(vol_xts, <span class="at">main=</span><span class="st">"Volatilidade Estocástica Estimada"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-8-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -375,19 +438,19 @@ A conjugação de φ incerto e σ incerto sugere um mercado onde a volatilidade 
 <section id="cluster-de-volatilidade" class="level2">
 <h2 class="anchored" data-anchor-id="cluster-de-volatilidade">Cluster de Volatilidade</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">acf</span>(<span class="fu">abs</span>(ret_vec), <span class="at">main=</span><span class="st">"ACF dos Retornos Absolutos"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">acf</span>(<span class="fu">abs</span>(ret_vec), <span class="at">main=</span><span class="st">"ACF dos Retornos Absolutos"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pacf</span>(<span class="fu">abs</span>(ret_vec), <span class="at">main=</span><span class="st">"PACF dos Retornos Absolutos"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">pacf</span>(<span class="fu">abs</span>(ret_vec), <span class="at">main=</span><span class="st">"PACF dos Retornos Absolutos"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-9-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-11-2.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -397,7 +460,7 @@ A conjugação de φ incerto e σ incerto sugere um mercado onde a volatilidade 
 <section id="teste-arch-lm" class="level2">
 <h2 class="anchored" data-anchor-id="teste-arch-lm">Teste ARCH LM</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ArchTest</span>(ret_vec, <span class="at">lags =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ArchTest</span>(ret_vec, <span class="at">lags =</span> <span class="dv">10</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
     ARCH LM-test; Null hypothesis: no ARCH effects
@@ -411,53 +474,53 @@ Chi-squared = 862.05, df = 10, p-value &lt; 2.2e-16</code></pre>
 <section id="distribuições-posteriores-dos-parâmetros" class="level2">
 <h2 class="anchored" data-anchor-id="distribuições-posteriores-dos-parâmetros">Distribuições Posteriores dos Parâmetros</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>echo<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>warning<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>message<span class="ot">=</span><span class="cn">FALSE</span></span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>params_mat <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(sv_fit<span class="sc">$</span>para)</span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>params_df <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(params_mat)</span>
-<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>params_df <span class="ot">&lt;-</span> params_df <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span><span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"nu"</span>, <span class="st">"rho"</span>)))  </span>
-<span id="cb25-8"><a href="#cb25-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-9"><a href="#cb25-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-10"><a href="#cb25-10" aria-hidden="true" tabindex="-1"></a>params_mat2 <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(sv_fit2<span class="sc">$</span>para)</span>
-<span id="cb25-11"><a href="#cb25-11" aria-hidden="true" tabindex="-1"></a>params_df2 <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(params_mat2)</span>
-<span id="cb25-12"><a href="#cb25-12" aria-hidden="true" tabindex="-1"></a>params_df2 <span class="ot">&lt;-</span> params_df2 <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span><span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"nu"</span>, <span class="st">"rho"</span>)))  </span>
-<span id="cb25-13"><a href="#cb25-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-14"><a href="#cb25-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-15"><a href="#cb25-15" aria-hidden="true" tabindex="-1"></a>df_long <span class="ot">&lt;-</span> <span class="fu">pivot_longer</span>(params_df, <span class="at">cols =</span> <span class="fu">everything</span>(),</span>
-<span id="cb25-16"><a href="#cb25-16" aria-hidden="true" tabindex="-1"></a>                         <span class="at">names_to =</span> <span class="st">"param"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>)</span>
-<span id="cb25-17"><a href="#cb25-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-18"><a href="#cb25-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb25-19"><a href="#cb25-19" aria-hidden="true" tabindex="-1"></a>df_long2 <span class="ot">&lt;-</span> <span class="fu">pivot_longer</span>(params_df2, <span class="at">cols =</span> <span class="fu">everything</span>(),</span>
-<span id="cb25-20"><a href="#cb25-20" aria-hidden="true" tabindex="-1"></a>                        <span class="at">names_to =</span> <span class="st">"param"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>echo<span class="ot">=</span><span class="cn">FALSE</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>warning<span class="ot">=</span><span class="cn">FALSE</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>message<span class="ot">=</span><span class="cn">FALSE</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>params_mat <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(sv_fit<span class="sc">$</span>para)</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>params_df <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(params_mat)</span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>params_df <span class="ot">&lt;-</span> params_df <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span><span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"nu"</span>, <span class="st">"rho"</span>)))  </span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>params_mat2 <span class="ot">&lt;-</span> <span class="fu">as.matrix</span>(sv_fit2<span class="sc">$</span>para)</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>params_df2 <span class="ot">&lt;-</span> <span class="fu">as_tibble</span>(params_mat2)</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>params_df2 <span class="ot">&lt;-</span> params_df2 <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span><span class="fu">any_of</span>(<span class="fu">c</span>(<span class="st">"nu"</span>, <span class="st">"rho"</span>)))  </span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a>df_long <span class="ot">&lt;-</span> <span class="fu">pivot_longer</span>(params_df, <span class="at">cols =</span> <span class="fu">everything</span>(),</span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a>                         <span class="at">names_to =</span> <span class="st">"param"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>)</span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>df_long2 <span class="ot">&lt;-</span> <span class="fu">pivot_longer</span>(params_df2, <span class="at">cols =</span> <span class="fu">everything</span>(),</span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>                        <span class="at">names_to =</span> <span class="st">"param"</span>, <span class="at">values_to =</span> <span class="st">"value"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_long, <span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">50</span>) <span class="sc">+</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>param, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Distribuições dos Parâmetros pré queda"</span>,</span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="st">"Valor"</span>, <span class="at">y =</span> <span class="st">"Frequência"</span>) <span class="sc">+</span></span>
-<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_long2, <span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_long, <span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">50</span>) <span class="sc">+</span></span>
 <span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>param, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Distribuições dos Parâmetros pós queda"</span>,</span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Distribuições dos Parâmetros pré queda"</span>,</span>
 <span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="st">"Valor"</span>, <span class="at">y =</span> <span class="st">"Frequência"</span>) <span class="sc">+</span></span>
 <span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(df_long2, <span class="fu">aes</span>(<span class="at">x =</span> value)) <span class="sc">+</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_histogram</span>(<span class="at">bins =</span> <span class="dv">50</span>) <span class="sc">+</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>param, <span class="at">scales =</span> <span class="st">"free"</span>) <span class="sc">+</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"Distribuições dos Parâmetros pós queda"</span>,</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>      <span class="at">x =</span> <span class="st">"Valor"</span>, <span class="at">y =</span> <span class="st">"Frequência"</span>) <span class="sc">+</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="analise_volatilidade_petr4_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
