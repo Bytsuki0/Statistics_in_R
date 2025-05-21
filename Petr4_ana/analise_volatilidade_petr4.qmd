@@ -161,29 +161,6 @@ pacf(log_ret_vec[idx_min:p2], main = "PACF - Log-Retornos Pós queda", na.action
 
 Comparação das as funções de autocorrelação (ACF) e autocorrelação parcial (PACF) dos log-retornos intradiários de PETR4 **antes** e **depois** de uma queda da opção.
 
-## 2. Comportamento Geral
-
-Em ambos os períodos, a **ACF dos retornos** decai imediatamente para valores próximos de zero após o lag 0.
-
-#### Pré-Queda
-
--   **ACF**: Queda abrupta após lag 0; todos os coeficientes dentro das bandas de confiança (\~±2/√T).\
--   **PACF**:
-    -   **Lag 1**: Leve autocorrelação parcial negativa (\~–0.02).\
-
-    -   **Lags 5–20**: Pequenos “espasmos”, mas sem ultrapassar bandas, indicando ruído aleatório.
--   **Pré-Queda:** Retornos se comportam como ruido branco com leve reversão imediata.
-
-#### Pós-Queda
-
--   **ACF**: Mesma queda imediata; coeficientes insignificantes após lag 0.\
--   **PACF**:
-    -   **Lag 1**: Reversão de preço mais pronunciada (\~–0.03), sinal de reação rápida de compradores da opção.\
-
-    -   **Lags 10–40**: Picos positivos e negativos sugerem padrões de liquidez intradiária possivelmente janelas de execução de algoritmos.
--   1\. **Reversão de curtíssimo prazo** intensificada (lag 1 negativo).\
-    2.  **Microestrutura & Liquidez**: agrupamentos de ordens e padrões de execução visíveis em lags mais altos.
-
 ## Ajuste do Modelo de Volatilidade Estocástica
 
 Ajustamos um modelo `svsample()` a dois blocos temporais:
@@ -207,7 +184,7 @@ ret_vec2 <- as.numeric(ret.1min[min:max])
 sv_fit2 <- svsample(ret_vec2, draws = 5000, burnin = 1000)
 
 
-min2 = max+15000
+min2 = max+12000
 max2 = min2+10000
 ret_vec3 <- as.numeric(ret.1min[min2:max2])
 sv_fit3 <- svsample(ret_vec3, draws = 5000, burnin = 1000)
@@ -307,95 +284,85 @@ Em particular, **μ** é a média de longo prazo da log-volatilidade, **φ** med
 
 A análise dos parâmetros μ, φ e σ em diferentes regimes pós-queda revela mudanças profundas na dinâmica de risco de PETR4. Antes do choque, o mercado apresentava volatilidade moderada com alta instabilidade no processo latente. Após a queda, o aumento de μ e φ combinados com menor σ pautam um regime de alta persistência e volatilidade média elevada, porém com choques menos extremos. Na fase de recuperação, todos os parâmetros retornam a patamares de menor incerteza, indicando estabilização do mercado. Essas informações são cruciais para aprimorar modelos de previsão e estratégias de hedge em opções intradiárias.
 
-## Comparação com Volatilidade Realizada
+## Comparação de volatilidades
+
+Criaremos o mesmo segmento utilizados acima como:
+
+**Segmento A:** Valores de 1 a 10000 observações antes da queda brusca.
+
+**Segmento B:** valores de 11600 a 22600 (2000 valores antes da queda e a queda em si).
+
+**Segmento C:** valores de 33600 a 43600 observando a volatilidade do mercado semanas após a queda.
+
+Iremos comparar a volatilidade realizada desses pontos para entender como era uma função pré, durante e pós uma queda brusca no mercado.
 
 ```{r}
-df_vol <- data.frame(volatility = sv_fit[["latent0"]][[1]])
-sv_vol_mean <- exp(df_vol / 2)
-vol_xts <- xts(sv_vol_mean, order.by = dt1$Period[1:5000])
-realized_vol <- rollapply(ret.1min[1:5000]^2, width=30, FUN=function(x) sqrt(252*390*mean(x)), by.column=TRUE, align="right")
-realized_vol <- na.omit(realized_vol)
-```
-
-```{r}
-par(mfrow=c(2,1))
-plot(realized_vol, main="Volatilidade Realizada")
-plot(vol_xts, main="Volatilidade Estocástica Estimada")
-```
-
-**Insight:** Ambas as volatilidades capturam padrões semelhantes, porém a volatilidade estocástica suaviza ruídos de alta frequência, sendo mais adequada para modelagem de risco e precificação.
-
-## Cluster de Volatilidade
-
-```{r}
-acf(abs(ret_vec), main="ACF dos Retornos Absolutos")
-pacf(abs(ret_vec), main="PACF dos Retornos Absolutos")
-```
-
-**Insight:** Forte autocorrelação nos retornos absolutos indica *clusteres de volatilidade*, fenômeno típico em séries financeiras.
-
-## Teste ARCH LM
-
-```{r}
-ArchTest(ret_vec, lags = 10)
-```
-
-**Resultado:** Significativo — indicando presença de heterocedasticidade condicional.
-
-## Distribuições Posteriores dos Parâmetros
-
-```{r}
-echo=FALSE
-warning=FALSE
-message=FALSE
-
-params_mat <- as.matrix(sv_fit$para)
-params_df <- as_tibble(params_mat)
-params_df <- params_df %>% select(-any_of(c("nu", "rho")))  
-
-
-params_mat2 <- as.matrix(sv_fit2$para)
-params_df2 <- as_tibble(params_mat2)
-params_df2 <- params_df2 %>% select(-any_of(c("nu", "rho")))  
-
-
-df_long <- pivot_longer(params_df, cols = everything(),
-                         names_to = "param", values_to = "value")
-
-
-df_long2 <- pivot_longer(params_df2, cols = everything(),
-                        names_to = "param", values_to = "value")
-```
-
-```{r}
-ggplot(df_long, aes(x = value)) +
-  geom_histogram(bins = 50) +
-  facet_wrap(~param, scales = "free") +
-  labs(title = "Distribuições dos Parâmetros pré queda",
-      x = "Valor", y = "Frequência") +
-  theme_minimal()
-
-```
-
-```{r}
-
-ggplot(df_long2, aes(x = value)) +
-  geom_histogram(bins = 50) +
-  facet_wrap(~param, scales = "free") +
-  labs(title = "Distribuições dos Parâmetros pós queda",
-      x = "Valor", y = "Frequência") +
+rets <- dt1$Ret.1min
+segments <- list(
+  A = 1:10000,
+  B = 11600:22600,
+  C = 33600:43600
+)
+vol_list <- lapply(names(segments), function(seg_name) {
+  idx <- segments[[seg_name]]
+  r_seg <- rets[idx]
+  vol_acum <- sqrt(cumsum(r_seg^2))
+  data.frame(
+    index   = idx,
+    vol     = vol_acum,
+    segment = seg_name
+  )
+})
+df_vol <- bind_rows(vol_list)
+ggplot(df_vol, aes(x = index, y = vol, color = segment)) +
+  geom_line() +
+  labs(
+    title    = "Volatilidade Realizada Acumulada por Segmento de Índices",
+    x        = "Índice",
+    y        = "Volatilidade Realizada",
+    color    = "Segmento"
+  ) +
   theme_minimal()
 ```
 
-**Interpretação:**
+```{r}
+rets <- dt1$Ret.1min
+segments <- list(
+  A = 1:10000,
+  B = 11600:22600,
+  C = 33600:43600
+)
 
--   `mu`: Média dos log-retornos.
--   `phi`: Persistência da volatilidade — valores próximos de 1 indicam alta persistência.
--   `sigma`: Volatilidade da volatilidade — mostra o quanto a variância latente oscila.
+vol_list2 <- lapply(names(segments), function(seg_name) {
+  idx   <- segments[[seg_name]]
+  vol   <- sqrt(rets[idx]^2)
+  data.frame(index = idx, vol = vol, segment = seg_name)
+})
+df_vol_inst <- bind_rows(vol_list2)
 
-## Comparação Antes e Depois da Queda
+plot_segment <- function(df, seg_name) {
+  df_sub <- df %>% filter(segment == seg_name)
+  ggplot(df_sub, aes(x = index, y = vol)) +
+    geom_line() +
+    labs(
+      title = paste0("Volatilidade Realizada – Segmento ", seg_name),
+      x     = "Índice",
+      y     = "Volatilidade Realizada (|Retorno|)"
+    ) +
+    ylim(0, 0.02)+
+    theme_minimal()
+}
 
-Parâmetros do modelo após a queda indicam aumento em `sigma` e possível redução em `phi`, sugerindo maior instabilidade e menor persistência da volatilidade.
+plot_A <- plot_segment(df_vol_inst, "A")
+plot_B <- plot_segment(df_vol_inst, "B")
+plot_C <- plot_segment(df_vol_inst, "C")
+
+plot_A  
+plot_B  
+plot_C  
+
+
+```
 
 ## Próximos Passos
 
