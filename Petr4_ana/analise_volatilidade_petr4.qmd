@@ -364,8 +364,12 @@ plot_C
 
 ```
 
+```{r}
+v_fit[["para"]][[1]]
+```
+
 ## Próximos Passos
 
--   Testar modelos com distribuição `t` para capturar caudas mais pesadas.
--   Incorporar covariáveis exógenas como volume, notícias ou macrodados.
--   Comparar com modelos GARCH para benchmarking.
+-   Como reproduzir a serie estocastica.
+-   Identificar saltos na serie estocastica limite universal.
+-   tentar deconpor em ondaleta se possivel a serie estocastica.
