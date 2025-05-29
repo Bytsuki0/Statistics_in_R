@@ -365,7 +365,35 @@ plot_C
 ```
 
 ```{r}
-v_fit[["para"]][[1]]
+h_mcmc <- sv_fit$latent[[1]]  
+h_mat <- as.matrix(h_mcmc)     
+dim(h_mat)                    
+h_mean <- colMeans(h_mat)     
+vol_est <- exp(h_mean / 2)   
+
+time_index <- seq(
+  from       = as.POSIXct("2021-01-01 09:31"),
+  by         = "1 min",
+  length.out = length(vol_est)
+)
+```
+
+```{r}
+plot(time_index, vol_est, type = "l",
+     xlab = "Tempo", ylab = "σ̂_t",
+     main = "Volatilidade Estocástica (média posterior)")
+
+df <- data.frame(time = time_index, vol = vol_est)
+ggplot(df, aes(x = time, y = vol)) +
+  geom_line() +
+  labs(
+    title = "Volatilidade Estocástica (média posterior)",
+    x     = "Tempo",
+    y     = "σ̂_t"
+  ) +
+  theme_minimal()
+
+
 ```
 
 ## Próximos Passos
