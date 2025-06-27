@@ -217,3 +217,139 @@ ggplot(df_long2, aes(x = value)) +
   labs(title = "Distribuições Posteriores dos Parâmetros",
       x = "Valor", y = "Frequência") +
   theme_minimal()
+
+
+
+plot_wavelet_levels_jumps <- function(df, levels = 12, df_name = "df_est") {
+  
+  filter_type <- "la12"
+  max_possible_levels <- floor(log2(nrow(df)))
+  levels_used <- min(levels, max_possible_levels)
+  
+  
+  dwt_result <- dwt(df$vol, n.levels = levels_used)
+  total_plots <- levels_used + 2
+  plots_list <- vector("list", total_plots)
+  
+  for (plot_idx in seq_len(total_plots)) {
+    if (plot_idx == 1) {
+      plots_list[[plot_idx]] <- ggplot(df, aes(x = time, y = vol)) +
+        geom_line(color = "blue") +
+        labs(title = paste(df_name, ": Série Original"), x = "Tempo", y = "Volatilidade") +
+        theme_minimal()
+      
+    } else if (plot_idx == total_plots) {
+      approx_dwt <- dwt_result
+      for (j in seq_len(levels_used)) approx_dwt@W[[j]][] <- 0
+      approximation <- idwt(approx_dwt)
+      df_plot <- data.frame(time = df$time, value = approximation[1:nrow(df)])
+      
+      plots_list[[plot_idx]] <- ggplot(df_plot, aes(x = time, y = value)) +
+        geom_line(color = "red") +
+        labs(title = paste(df_name, ": Aproximação (Nível", levels_used, ")"), x = "Tempo", y = "Valor") +
+        theme_minimal()
+      
+    } else {
+      i <- plot_idx - 1
+      detail_dwt <- dwt_result
+      for (j in seq_len(levels_used)) if (j != i) detail_dwt@W[[j]][] <- 0
+      detail_dwt@V[[levels_used]][] <- 0
+      detail_series <- idwt(detail_dwt)
+      
+      if (length(detail_series) > nrow(df)) {
+        detail_series <- detail_series[1:nrow(df)]
+      }
+      
+      df_plot <- data.frame(time = df$time, value = detail_series)
+      
+      Wj <- dwt_result@W[[i]]
+      sigma_j <- median(abs(Wj - median(Wj))) / 0.6745
+      lambda_j <- sqrt(2 * log(length(Wj))) * sigma_j * sqrt(2)
+      jumps_idx <- which(abs(Wj) > lambda_j)
+      
+      jump_series <- rep(NA, nrow(df))
+      jumps_idx_valid <- jumps_idx[jumps_idx <= nrow(df)]
+      jump_series[jumps_idx_valid] <- detail_series[jumps_idx_valid]
+      
+      df_plot$jumps <- jump_series
+      
+      plots_list[[plot_idx]] <- ggplot(df_plot, aes(x = time, y = value)) +
+        geom_line(color = "darkgreen") +
+        geom_point(data = subset(df_plot, !is.na(jumps)), aes(x = time, y = jumps), color = "red", size = 1.5) +
+        labs(title = paste(df_name, ": Detalhe Nível", i, "com Saltos"), x = "Tempo", y = "Valor") +
+        theme_minimal()
+    }
+  }
+  
+  for (k in seq(1, length(plots_list), by = 2)) {
+    p1 <- plots_list[[k]]
+    p2 <- if ((k + 1) <= length(plots_list)) plots_list[[k + 1]] else NULL
+    if (!is.null(p2)) {
+      grid.arrange(p1, p2, nrow = 2)
+    } else {
+      print(p1)
+    }
+  }
+  
+  invisible(plots_list)
+}
+
+plot_wavelet_levels_jumps(df_est, levels = 12, df_name = "df_est")
+
+
+
+{r}
+plot_wavelet_levels_ggplot <- function(df, levels = 12, df_name = "df_est") {
+  filter_type <- "la12"
+  max_possible_levels <- floor(log2(nrow(df)))
+  levels_used <- min(levels, max_possible_levels)
+  
+  
+  dwt_result <- dwt(df$vol, n.levels = levels_used)
+  total_plots <- levels_used + 2
+  plots_list <- vector("list", total_plots)
+  for (plot_idx in seq_len(total_plots)) {
+    if (plot_idx == 1) {
+      plots_list[[plot_idx]] <- ggplot(df, aes(x = time, y = vol)) +
+        geom_line(color = "blue") +
+        labs(title = paste(df_name, ": Série Original"), x = "Tempo", y = "Volatilidade") +
+        theme_minimal()
+      
+    } else if (plot_idx == total_plots) {
+      approx_dwt <- dwt_result
+      for (j in seq_len(levels_used)) approx_dwt@W[[j]][] <- 0
+      approximation <- idwt(approx_dwt)
+      df_plot <- data.frame(time = df$time, value = approximation)
+      
+      plots_list[[plot_idx]] <- ggplot(df_plot, aes(x = time, y = value)) +
+        geom_line(color = "red") +
+        labs(title = paste(df_name, ": Aproximação (Nível", levels_used, ")"), x = "Tempo", y = "Valor") +
+        theme_minimal()
+      
+    } else {
+      i <- plot_idx - 1
+      detail_dwt <- dwt_result
+      for (j in seq_len(levels_used)) if (j != i) detail_dwt@W[[j]][] <- 0
+      detail_dwt@V[[levels_used]][] <- 0
+      detail_series <- idwt(detail_dwt)
+      df_plot <- data.frame(time = df$time, value = detail_series)
+      
+      plots_list[[plot_idx]] <- ggplot(df_plot, aes(x = time, y = value)) +
+        geom_line(color = "darkgreen") +
+        labs(title = paste(df_name, ": Detalhe Nível", i), x = "Tempo", y = "Valor") +
+        theme_minimal()
+    }
+  }
+  
+  for (k in seq(1, length(plots_list), by = 2)) {
+    p1 <- plots_list[[k]]
+    p2 <- if ((k + 1) <= length(plots_list)) plots_list[[k + 1]] else NULL
+    if (!is.null(p2)) {
+      grid.arrange(p1, p2, nrow = 2)
+    } else {
+      print(p1)
+    }
+  }
+}
+
+plot_wavelet_levels_ggplot(df_est, levels = 12, df_name = "df_est")
