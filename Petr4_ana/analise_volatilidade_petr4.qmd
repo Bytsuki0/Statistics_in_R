@@ -39,6 +39,7 @@ Este relatório explora o comportamento da volatilidade e dos retornos da ação
   library(wavelets)
   library(gridExtra)
   library(broom)
+  library(rugarch) 
 ```
 
 ```{r}
@@ -640,7 +641,65 @@ res3 <- detect_jumps_modwt(df_est3, levels = 12)
 model_jump_intensity(df_est3, res3$jumps, window = "hour", df_name = "PETR4",momento = "Pós queda")
 ```
 
-```         
+```{r load-packages, include=FALSE}
+res <- detect_jumps_modwt(df_est2, levels = 12)
+jumps_vec <- unlist(res$jumps)
+jump_idx <- which(!is.na(jumps_vec) & jumps_vec != 0)
+cat("Saltos detectados em", length(jump_idx), "instantes\n")
+ret       <- df_est2$vol
+ret_clean <- ret
+ret_clean[jump_idx] <- 0
+
+sv_fit_orig <- svsample(y = ret,       draws = 5000, burnin = 1000,
+                        priormu = c(0,10), priorphi = c(20,1.1),
+                        priorsigma = 1)
+sv_fit_clean<- svsample(y = ret_clean, draws = 5000, burnin = 1000,
+                        priormu = c(0,10), priorphi = c(20,1.1),
+                        priorsigma = 1)
+```
+
+```{r}
+h_draws_orig  <- latent(sv_fit_orig)
+h_draws_clean <- latent(sv_fit_clean)
+h_mean_orig  <- colMeans(as.matrix(h_draws_orig))
+h_mean_clean <- colMeans(as.matrix(h_draws_clean))
+h_mean_orig  <- h_mean_orig[-1]
+h_mean_clean <- h_mean_clean[-1]
+sigma_orig  <- exp(h_mean_orig / 2)
+sigma_clean <- exp(h_mean_clean / 2)
+library(ggplot2)
+p1 <- ggplot(data = data.frame(time = df_est$time, sigma = sigma_orig),
+             aes(x = time, y = sigma)) +
+  geom_line() +
+  ggtitle("SV: Série Original (com saltos)") +
+  xlab("Tempo") + ylab("σₜ")
+
+p2 <- ggplot(data = data.frame(time = df_est$time, sigma = sigma_clean),
+             aes(x = time, y = sigma)) +
+  geom_line() +
+  ggtitle("SV: Série Limpa (saltos zerados)") +
+  xlab("Tempo") + ylab("σₜ")
+
+library(gridExtra)
+grid.arrange(p1, p2, nrow = 2)
+
+spec_garch <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(0, 0), include.mean = FALSE),
+  distribution.model = "std"
+)
+
+fit_garch_orig  <- ugarchfit(spec = spec_garch, data = ret,       solver = "hybrid")
+fit_garch_clean <- ugarchfit(spec = spec_garch, data = ret_clean, solver = "hybrid")
+
+aic_orig   <- infocriteria(fit_garch_orig)["Akaike"]
+bic_orig   <- infocriteria(fit_garch_orig)["Bayes"]
+aic_clean  <- infocriteria(fit_garch_clean)["Akaike"]
+bic_clean  <- infocriteria(fit_garch_clean)["Bayes"]
+
+resid_orig <- residuals(fit_garch_orig, standardize = TRUE)
+acf(resid_orig, main = "ACF Resíduos Padronizados (Orig.)")
+pacf(resid_orig, main = "PACF Resíduos Padronizados (Orig.)")
 ```
 
 ## Descrição dos Dados
