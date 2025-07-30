@@ -179,19 +179,51 @@ warning=FALSE
 message=FALSE
 
 set.seed(123)
-ret_vec <- as.numeric(ret.1min[1:10000])
-sv_fit <- svsample(ret_vec, draws = 10000, burnin = 1000)
+if (file.exists("sv_fit1.rds")) {
+  sv_fit <- readRDS("sv_fit1.rds")
+} else {
+  ret_vec <- as.numeric(ret.1min[1:10000])
+  sv_fit <- svsample(ret_vec, draws = 3000, burnin = 1000)
+  saveRDS(sv_fit, "sv_fit1.rds")
+}
 
-min = idx_max-2500
-max = idx_max+7500
-ret_vec2 <- as.numeric(ret.1min[min:max])
-sv_fit2 <- svsample(ret_vec2, draws = 5000, burnin = 1000)
+```
 
+```{r setup, include=FALSE}
+echo=FALSE
+warning=FALSE
+message=FALSE
 
-min2 = max+12000
-max2 = min2+10000
-ret_vec3 <- as.numeric(ret.1min[min2:max2])
-sv_fit3 <- svsample(ret_vec3, draws = 5000, burnin = 1000)
+min = idx_max - 2500
+max = idx_max + 7500
+if (file.exists("sv_fit2.rds")) {
+  sv_fit2 <- readRDS("sv_fit2.rds")
+} else {
+  ret_vec2 <- as.numeric(ret.1min[min:max])
+  sv_fit2 <- svsample(ret_vec2, draws = 3000, burnin = 1000)
+  saveRDS(sv_fit2, "sv_fit2.rds")
+}
+```
+
+```{r setup, include=FALSE}
+echo=FALSE
+warning=FALSE
+message=FALSE
+
+min2 = max + 12000
+max2 = min2 + 10000
+if (file.exists("sv_fit3.rds")) {
+  sv_fit3 <- readRDS("sv_fit3.rds")
+} else {
+  ret_vec3 <- as.numeric(ret.1min[min2:max2])
+  sv_fit3 <- svsample(ret_vec3, draws = 3000, burnin = 1000)
+  saveRDS(sv_fit3, "sv_fit3.rds")
+}
+```
+
+```{r}
+ret_vec_complt <- as.numeric(ret.1min)
+sv_fit_complt <- svsample(ret_vec_complt, draws = 3000, burnin = 1000)
 
 ```
 
@@ -202,6 +234,8 @@ plot(sv_fit2, showobs = FALSE)
 title(main = "Pós queda")
 plot(sv_fit3, showobs = FALSE)
 title(main = "Recuperação Pós queda")
+plot(sv_fit_complt, showobs = FALSE)
+title(main = "Completo")
 ```
 
 Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principalmente nas distribuições normais de Mu, Phi e Sigma, onde podemos definir o que cada variavel nos diz como:
@@ -407,16 +441,28 @@ time_index3 <- seq(
   length.out = length(vol_est3)
 )
 
+h_mcmc <- sv_fit_complt$latent[[1]]  
+h_mat <- as.matrix(h_mcmc)     
+dim(h_mat)                    
+h_mean <- colMeans(h_mat)     
+vol_est_complt <- exp(h_mean / 2)   
+
+time_index_complt <- seq(
+  from       = as.POSIXct("2021-01-01 09:31"),
+  by         = "1 min",
+  length.out = length(vol_est_complt)
+)
 
 df_est <- data.frame(time = time_index, vol = vol_est)
 df_est2 <- data.frame(time = time_index2, vol = vol_est2)
 df_est3 <- data.frame(time = time_index3, vol = vol_est3)
+df_est_complt <- data.frame(time = time_index_complt, vol = vol_est_complt)
 
 ```
 
 ```{r}
 
-ggplot(df_est, aes(x = time, y = vol)) +
+ggplot(df_est_complt, aes(x = time, y = vol)) +
   geom_line() +
   labs(
     title = "Volatilidade Estocástica (média posterior)",
@@ -433,6 +479,42 @@ ggplot(df_est, aes(x = time, y = vol)) +
 -   **Onda‑mãe**: Haar, por sua simplicidade e desempenho.
 
 -   **Interpretação**: níveis de detalhe (d1, d4, d8, d12) mostram oscilações de alta frequência ligadas ao salto de 22/02/2021; níveis de baixa frequência evidenciam a tendência geral.
+
+```{r}
+tseries::adf.test(df_est_complt$vol)
+```
+
+```{r}
+df_test <- data.frame(
+  time = dt1$Period,
+  vol  = dt1$`Ret.1min`
+)
+
+compute_realized_vol <- function(df,
+                                 return_col = "vol",
+                                 time_col   = "time",
+                                 window     = "5 mins") {
+  df %>%
+    mutate(ret2 = .data[[return_col]]^2) %>%
+    mutate(time_window = floor_date(.data[[time_col]], unit = window)) %>%
+    group_by(time_window) %>%
+    summarise(
+      realized_var = sum(ret2, na.rm = TRUE),
+      vol = sqrt(realized_var),
+      .groups = "drop"
+    ) %>%
+    rename(!!time_col := time_window)
+}
+
+df_rv5 <- compute_realized_vol(df_test,
+                               return_col = "vol",
+                               time_col   = "time",
+                               window     = "5 mins")
+```
+
+```{r}
+tseries::adf.test(df_rv5$vol)
+```
 
 ```{r}
 plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") {
@@ -490,8 +572,23 @@ plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") 
   invisible(plots_list)
 }
 
-plot_wavelet_levels_modwt_hist(df_est3, levels = 12, df_name = "PETR4")
 
+
+plot_wavelet_levels_modwt_hist(
+  df_rv5,
+  levels  = 12,
+  df_name = "PETR4"
+)
+
+
+```
+
+```{r}
+plot_wavelet_levels_modwt_hist(
+  df_est_complt,
+  levels  = 12,
+  df_name = "PETR4"
+)
 ```
 
 ```{r}
