@@ -24,7 +24,7 @@ Este relatório explora o comportamento da volatilidade e dos retornos da ação
   library(forecast)
   library(lubridate)
   library(PerformanceAnalytics)
-  library(highfrequency)         
+  #library(highfrequency)         
   library(quantmod)    
   library(tseries)     
   library(FinTS)       
@@ -48,7 +48,7 @@ if(os == "Windows") {
                        header = TRUE, stringsAsFactors = FALSE, 
                        sep = ";", dec = ",")
 } else if(os == "Linux") {
-  dt.intra <- read.csv("~/Documentos/Coding/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
+  dt.intra <- read.csv("~/Documentos/Code/Statistics_in_R/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
                        header = TRUE, stringsAsFactors = FALSE, 
                        sep = ";", dec = ",")
 }
@@ -83,14 +83,6 @@ message=FALSE
 # Teste ADF e visualizações iniciais
 par(mfrow=c(1,1))
 
-# Identificar outliers
-idx_min <- which.min(as.double(ret.1min))
-idx_max <- which.max(as.double(ret.1min))
-
-# Substituir outliers pela observação anterior
-ret.1min[idx_min] <- ret.1min[idx_min - 1]
-ret.1min[idx_max] <- ret.1min[idx_max - 1]
-
 plot.ts(ret.1min)
 boxplot(as.double(ret.1min))
 
@@ -109,12 +101,7 @@ Resultado mostra que os retornos são estacionários, o que é esperado para sé
 ```{r}
 
   dados_xts <- xts(dt1[, c("Close.1min", "Ret.1min")], order.by = dt1$Period)
-  
-  idx_min <- which.min(as.double(ret.1min))
-  idx_max <- which.max(as.double(ret.1min))
-  
-  dados_xts[idx_min] <- dados_xts[idx_min - 1]
-  dados_xts[idx_max] <- dados_xts[idx_max - 1]
+
   p2 = idx_min +10000
 ```
 
@@ -179,19 +166,21 @@ message=FALSE
 
 set.seed(123)
 ret_vec <- as.numeric(ret.1min[1:10000])
-sv_fit <- svsample(ret_vec, draws = 10000, burnin = 1000)
+sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
+```
 
+```{r}
 min = idx_max-2500
 max = idx_max+7500
 ret_vec2 <- as.numeric(ret.1min[min:max])
 sv_fit2 <- svsample(ret_vec2, draws = 5000, burnin = 1000)
+```
 
-
+```{r}
 min2 = max+12000
 max2 = min2+10000
 ret_vec3 <- as.numeric(ret.1min[min2:max2])
 sv_fit3 <- svsample(ret_vec3, draws = 5000, burnin = 1000)
-
 ```
 
 ```{r}
@@ -394,7 +383,7 @@ time_index2 <- seq(
 )
 
 
-h_mcmc <- sv_fit3$latent[[1]]  
+h_mcmc <- sv_fit$latent[[1]]  
 h_mat <- as.matrix(h_mcmc)     
 dim(h_mat)                    
 h_mean <- colMeans(h_mat)     
@@ -410,7 +399,13 @@ time_index3 <- seq(
 df_est <- data.frame(time = time_index, vol = vol_est)
 df_est2 <- data.frame(time = time_index2, vol = vol_est2)
 df_est3 <- data.frame(time = time_index3, vol = vol_est3)
+```
 
+```{r}
+par(mfrow = c(3, 1))
+plot(df_est)
+plot(df_est2)
+plot(df_est3)
 ```
 
 ```{r}
@@ -439,7 +434,7 @@ plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") 
   filter_type <- "haar"
   max_possible_levels <- min(levels, floor(log2(nrow(df))))
   
-  modwt_result <- modwt(df$vol, n.levels = max_possible_levels, boundary = "reflection")
+  modwt_result <- modwt(df$vol, n.levels = max_possible_levels, boundary = "periodic")
   total_plots <- max_possible_levels + 2
   plots_list <- vector("list", total_plots)
   
@@ -488,8 +483,8 @@ plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") 
   
   invisible(plots_list)
 }
-
-plot_wavelet_levels_modwt_hist(df_est3, levels = 12, df_name = "PETR4")
+#como comparar volatilidade em periodos diferentes 
+plot_wavelet_levels_modwt_hist(df_est, levels = 12, df_name = "PETR4")
 
 ```
 
@@ -658,3 +653,5 @@ Para ilustrar a identificação de saltos em diferentes escalas, foi utilizada a
 -   Como reproduzir a serie estocastica.
 -   Identificar saltos na serie estocastica limite universal.
 -   tentar deconpor em ondaleta se possivel a serie estocastica.
+
+ler barunik, arruma ondeleta, saltos intradiarios, definir vetor na serie completa (onde não tiver saltos = 0, onde tiver salto - valor do indice anterior) calculo no Jv
