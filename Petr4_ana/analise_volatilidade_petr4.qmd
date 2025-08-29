@@ -39,6 +39,7 @@ Este relatório explora o comportamento da volatilidade e dos retornos da ação
   library(wavelets)
   library(gridExtra)
   library(broom)
+  library(rugarch) 
 ```
 
 ```{r}
@@ -190,6 +191,8 @@ plot(sv_fit2, showobs = FALSE)
 title(main = "Pós queda")
 plot(sv_fit3, showobs = FALSE)
 title(main = "Recuperação Pós queda")
+plot(sv_fit_complt, showobs = FALSE)
+title(main = "Completo")
 ```
 
 Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principalmente nas distribuições normais de Mu, Phi e Sigma, onde podemos definir o que cada variavel nos diz como:
@@ -395,6 +398,17 @@ time_index3 <- seq(
   length.out = length(vol_est3)
 )
 
+h_mcmc <- sv_fit_complt$latent[[1]]  
+h_mat <- as.matrix(h_mcmc)     
+dim(h_mat)                    
+h_mean <- colMeans(h_mat)     
+vol_est_complt <- exp(h_mean / 2)   
+
+time_index_complt <- seq(
+  from       = as.POSIXct("2021-01-01 09:31"),
+  by         = "1 min",
+  length.out = length(vol_est_complt)
+)
 
 df_est <- data.frame(time = time_index, vol = vol_est)
 df_est2 <- data.frame(time = time_index2, vol = vol_est2)
@@ -410,7 +424,7 @@ plot(df_est3)
 
 ```{r}
 
-ggplot(df_est, aes(x = time, y = vol)) +
+ggplot(df_est_complt, aes(x = time, y = vol)) +
   geom_line() +
   labs(
     title = "Volatilidade Estocástica (média posterior)",
@@ -427,6 +441,42 @@ ggplot(df_est, aes(x = time, y = vol)) +
 -   **Onda‑mãe**: Haar, por sua simplicidade e desempenho.
 
 -   **Interpretação**: níveis de detalhe (d1, d4, d8, d12) mostram oscilações de alta frequência ligadas ao salto de 22/02/2021; níveis de baixa frequência evidenciam a tendência geral.
+
+```{r}
+tseries::adf.test(df_est_complt$vol)
+```
+
+```{r}
+df_test <- data.frame(
+  time = dt1$Period,
+  vol  = dt1$`Ret.1min`
+)
+
+compute_realized_vol <- function(df,
+                                 return_col = "vol",
+                                 time_col   = "time",
+                                 window     = "5 mins") {
+  df %>%
+    mutate(ret2 = .data[[return_col]]^2) %>%
+    mutate(time_window = floor_date(.data[[time_col]], unit = window)) %>%
+    group_by(time_window) %>%
+    summarise(
+      realized_var = sum(ret2, na.rm = TRUE),
+      vol = sqrt(realized_var),
+      .groups = "drop"
+    ) %>%
+    rename(!!time_col := time_window)
+}
+
+df_rv5 <- compute_realized_vol(df_test,
+                               return_col = "vol",
+                               time_col   = "time",
+                               window     = "5 mins")
+```
+
+```{r}
+tseries::adf.test(df_rv5$vol)
+```
 
 ```{r}
 plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") {
@@ -635,7 +685,65 @@ res3 <- detect_jumps_modwt(df_est3, levels = 12)
 model_jump_intensity(df_est3, res3$jumps, window = "hour", df_name = "PETR4",momento = "Pós queda")
 ```
 
-```         
+```{r load-packages, include=FALSE}
+res <- detect_jumps_modwt(df_est2, levels = 12)
+jumps_vec <- unlist(res$jumps)
+jump_idx <- which(!is.na(jumps_vec) & jumps_vec != 0)
+cat("Saltos detectados em", length(jump_idx), "instantes\n")
+ret       <- df_est2$vol
+ret_clean <- ret
+ret_clean[jump_idx] <- 0
+
+sv_fit_orig <- svsample(y = ret,       draws = 5000, burnin = 1000,
+                        priormu = c(0,10), priorphi = c(20,1.1),
+                        priorsigma = 1)
+sv_fit_clean<- svsample(y = ret_clean, draws = 5000, burnin = 1000,
+                        priormu = c(0,10), priorphi = c(20,1.1),
+                        priorsigma = 1)
+```
+
+```{r}
+h_draws_orig  <- latent(sv_fit_orig)
+h_draws_clean <- latent(sv_fit_clean)
+h_mean_orig  <- colMeans(as.matrix(h_draws_orig))
+h_mean_clean <- colMeans(as.matrix(h_draws_clean))
+h_mean_orig  <- h_mean_orig[-1]
+h_mean_clean <- h_mean_clean[-1]
+sigma_orig  <- exp(h_mean_orig / 2)
+sigma_clean <- exp(h_mean_clean / 2)
+library(ggplot2)
+p1 <- ggplot(data = data.frame(time = df_est$time, sigma = sigma_orig),
+             aes(x = time, y = sigma)) +
+  geom_line() +
+  ggtitle("SV: Série Original (com saltos)") +
+  xlab("Tempo") + ylab("σₜ")
+
+p2 <- ggplot(data = data.frame(time = df_est$time, sigma = sigma_clean),
+             aes(x = time, y = sigma)) +
+  geom_line() +
+  ggtitle("SV: Série Limpa (saltos zerados)") +
+  xlab("Tempo") + ylab("σₜ")
+
+library(gridExtra)
+grid.arrange(p1, p2, nrow = 2)
+
+spec_garch <- ugarchspec(
+  variance.model     = list(model = "sGARCH", garchOrder = c(1, 1)),
+  mean.model         = list(armaOrder = c(0, 0), include.mean = FALSE),
+  distribution.model = "std"
+)
+
+fit_garch_orig  <- ugarchfit(spec = spec_garch, data = ret,       solver = "hybrid")
+fit_garch_clean <- ugarchfit(spec = spec_garch, data = ret_clean, solver = "hybrid")
+
+aic_orig   <- infocriteria(fit_garch_orig)["Akaike"]
+bic_orig   <- infocriteria(fit_garch_orig)["Bayes"]
+aic_clean  <- infocriteria(fit_garch_clean)["Akaike"]
+bic_clean  <- infocriteria(fit_garch_clean)["Bayes"]
+
+resid_orig <- residuals(fit_garch_orig, standardize = TRUE)
+acf(resid_orig, main = "ACF Resíduos Padronizados (Orig.)")
+pacf(resid_orig, main = "PACF Resíduos Padronizados (Orig.)")
 ```
 
 ## Descrição dos Dados
