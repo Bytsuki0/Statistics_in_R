@@ -1,49 +1,79 @@
----
-title: "Análise de Volatilidade Estocástica e Retornos Intradiários - PETR4"
-author: "Gustavo Vitor da Silva"
-format: html
-editor: visual
----
 
-## Introdução
+pkgs <- c(
+  "dplyr", "ggplot2", "tidyr", "zoo", "xts", "forecast", "lubridate",
+  "PerformanceAnalytics", "quantmod", "tseries", "FinTS", "stochvol",
+  "fpp2", "fpp3", "parsnip", "rsample", "cowplot", "wavelets",
+  "gridExtra", "broom", "rugarch"
+  # "highfrequency", "modeltime", "timetk"  # descomente se precisar
+)
 
-Este relatório explora o comportamento da volatilidade e dos retornos da ação PETR4 ao longo de 2021, com dados de frequência de 1 minuto extraídos da plataforma MetaTrader. Utilizamos modelos de volatilidade estocástica via `stochvol`, comparações com volatilidade realizada, e examinamos propriedades de clustering de volatilidade.
+if (!requireNamespace("remotes", quietly = TRUE)) {
+  install.packages("remotes")
+}
 
-## Leitura e Pré-processamento dos Dados
+install_if_missing <- function(p) {
+  if (!requireNamespace(p, quietly = TRUE)) {
+    message("Instalando pacote: ", p)
+    tryCatch(
+      {
+        install.packages(p)
+      },
+      error = function(e) {
+        message("⚠️ Falhou no CRAN: ", p, " — tentando via GitHub (se disponível).")
+        # casos especiais (pacotes de forecasting e high-frequency finance)
+        if (p %in% c("fpp2", "fpp3")) {
+          remotes::install_github("robjhyndman/fpp2")
+          remotes::install_github("robjhyndman/fpp3")
+        }
+        if (p == "highfrequency") {
+          remotes::install_github("jonathancornelissen/highfrequency")
+        }
+        if (p == "modeltime") {
+          remotes::install_github("business-science/modeltime")
+        }
+        if (p == "timetk") {
+          remotes::install_github("business-science/timetk")
+        }
+      }
+    )
+  } else {
+    message("✔️ Já instalado: ", p)
+  }
+}
+invisible(lapply(pkgs, install_if_missing))
 
--   Remoção de janelas de abertura com menor liquidez (10:00 até 10:20) e dos últimos minutos de pregão (após 16:55).
 
--   Exclusão do feriado em 17/02/2021.
+install.packages(c("RcppArmadillo", "curl", "TTR", "quantmod", "tseries", "forecast"))
 
--   Conversão para série temporal (`xts`) e remoção de outliers extremos substituindo-os pela observação anterior
+install.packages('nloptr')
 
-```{r load-packages, include=FALSE}
-  library(ggplot2)
-  library(tidyr)
-  library(zoo)
-  library(xts)
-  library(forecast)
-  library(lubridate)
-  library(PerformanceAnalytics)
-  #library(highfrequency)         
-  library(quantmod)    
-  library(tseries)     
-  library(FinTS)       
-  library(stochvol)  
-  library(fpp2)     
-  library(fpp3)       
-  #library(modeltime)    
-  #library(timetk)      
-  library(parsnip)      
-  library(rsample)      
-  library(cowplot)
-  library(wavelets)
-  library(gridExtra)
-  library(broom)
-  library(rugarch) 
-```
+library(ggplot2)
+library(tidyr)
+library(zoo)
+library(xts)
+library(forecast)
+library(lubridate)
+library(PerformanceAnalytics)
+#library(highfrequency)         
+library(quantmod)    
+library(tseries)     
+library(FinTS)       
+library(stochvol)  
+library(fpp2)     
+library(fpp3)       
+#library(modeltime)    
+#library(timetk)      
+library(parsnip)      
+library(rsample)      
+library(cowplot)
+library(wavelets)
+library(gridExtra)
+library(broom)
+library(rugarch) 
 
-```{r}
+
+
+
 os <- Sys.info()["sysname"]
 if(os == "Windows") {
   dt.intra <- read.csv("D:/Code/R_studio/Petr4_ana/dt_1min_PETR4_2021_metatrader.csv", 
@@ -66,45 +96,21 @@ dt1 <- as_tibble(dt.intra) %>%
 
 ret.1min <- as.xts(dt1$Ret.1min, order.by = dt1$Period)
 
-```
 
-## Observação inicial
 
-```{r}
 plot(ret.1min, main="PETR4 Retornos 1min", col="black")
 boxplot(as.double(ret.1min), main="Boxplot dos Retornos 1min")
-```
 
-```{r}
-warning=FALSE
-message=FALSE
-# Teste ADF e visualizações iniciais
+
 par(mfrow=c(1,1))
 
 plot.ts(ret.1min)
 boxplot(as.double(ret.1min))
 
-```
-
-## Testes de Estacionariedade
-
-```{r}
 tseries::adf.test(ret.1min)
-```
+dados_xts <- xts(dt1[, c("Close.1min", "Ret.1min")], order.by = dt1$Period)
 
-Resultado mostra que os retornos são estacionários, o que é esperado para séries de retornos.
-
-## Analises de têndencias pré e pós queda
-
-```{r}
-  idx_min <- which.min(dt1$Ret.1min)
-
-  dados_xts <- xts(dt1[, c("Close.1min", "Ret.1min")], order.by = dt1$Period)
-
-  p2 = idx_min +10000
-```
-
-```{r}
+p2 = idx_min +10000
 dados_xts$LogRet.1min <- log(1 + dados_xts$Ret.1min)
 
 dados_xts <- na.omit(dados_xts)
@@ -127,16 +133,11 @@ volhist30min=dados_xts$Vol_Hist_30min
 plot(volhist30min[1:10000], main = "Volatilidade (Janela 30 min) Pré queda", xlab = "Data", ylab = "Volatilidade")
 
 plot(volhist30min[idx_min:p2], main = "Volatilidade (Janela 30 min) Pós queda", xlab = "Data", ylab = "Volatilidade")
-```
 
-```{r}
-warning=FALSE
-message=FALSE
+
 log_ret_vec <- as.numeric(dados_xts$LogRet.1min)
 ret_vec <- as.numeric(dados_xts$Ret.1min)
 
-
-# Visualizando ACF e PACF
 par(mfrow = c(1, 2))
 acf(log_ret_vec[1:10000], main = "ACF - Log-Retornos Pré queda", na.action = na.pass)
 pacf(log_ret_vec[1:10000], main = "PACF - Log-Retornos Pré queda", na.action = na.pass)
@@ -144,47 +145,24 @@ pacf(log_ret_vec[1:10000], main = "PACF - Log-Retornos Pré queda", na.action = 
 par(mfrow = c(1, 2))
 acf(log_ret_vec[idx_min:p2], main = "ACF - Log-Retornos Pós queda", na.action = na.pass)
 pacf(log_ret_vec[idx_min:p2], main = "PACF - Log-Retornos Pós queda", na.action = na.pass)
-```
-
-## 1. Objetivos
-
-Comparação das as funções de autocorrelação (ACF) e autocorrelação parcial (PACF) dos log-retornos intradiários de PETR4 **antes** e **depois** de uma queda da opção.
-
-## Ajuste do Modelo de Volatilidade Estocástica
-
-Ajustamos um modelo `svsample()` a dois blocos temporais:
-
-1.  Primeiros 10000 pontos antes do maior retorno absoluto negativo.
-2.  10000 pontos após o menor retorno (queda abrupta) para comparar regimes.
-3.  15000 pontos após analise anterior 10000 mil pontos são analisados para observar a recuperação do mercado a uma queda bruta.
-
-```{r setup, include=FALSE}
-echo=FALSE
-warning=FALSE
-message=FALSE
 
 set.seed(123)
 ret_vec <- as.numeric(ret.1min[1:10000])
 sv_fit <- svsample(ret_vec, draws = 5000, burnin = 1000)
-```
 
-```{r}
-idx_max = which.max(dt1$Ret.1min)
 
 min = idx_max-2500
 max = idx_max+7500
 ret_vec2 <- as.numeric(ret.1min[min:max])
 sv_fit2 <- svsample(ret_vec2, draws = 5000, burnin = 1000)
-```
 
-```{r}
+
 min2 = max+12000
 max2 = min2+10000
 ret_vec3 <- as.numeric(ret.1min[min2:max2])
 sv_fit3 <- svsample(ret_vec3, draws = 5000, burnin = 1000)
-```
 
-```{r}
+
 plot(sv_fit, showobs = FALSE)
 title(main = "Pré queda")
 plot(sv_fit2, showobs = FALSE)
@@ -193,105 +171,10 @@ plot(sv_fit3, showobs = FALSE)
 title(main = "Recuperação Pós queda")
 plot(sv_fit_complt, showobs = FALSE)
 title(main = "Completo")
-```
 
-Analisando os dados pós e pré queda da bolsa podemos ver uma mudança principalmente nas distribuições normais de Mu, Phi e Sigma, onde podemos definir o que cada variavel nos diz como:
 
-### Interpretação de μ (mu)
 
-1.  **Média de longo prazo**
 
-    -   **μ** define o valor médio ao qual Log-volatilidade reverte em longo prazo.
-
-    -   Processos com μ maior indicam que, em média, a volatilidade tende a ficar mais elevada.
-
-2.  **“Drift” da volatilidade latente**
-
-    -   Atua como termo constante que “puxa” o nível de volatilidade de volta ao seu ponto de equilíbrio
-
-    -   Ao estimar o modelo, a média pontual de μ na distribuição posterior corresponde à média aritmética.
-
-### Interpretação de φ (phi)
-
-1.  **Persistência (autoregressão)**
-
-    -   **φ** atua como coeficiente AR(1) medindo a “memória” da volatilidade.
-
-    -   Se φ≈1, choques em ht−1 têm efeito duradouro​, resultando em **clusters de volatilidade**.
-
-    **Estacionaridade**
-
-    -   O modelo é estacionário somente se ∣ϕ∣\<1; valores absolutos acima quebram a estabilidade do processo latente.
-
-    -   Estimações típicas em mercados emergentes mostram φ entre 0.95 e 0.99, indicando alta persistência.
-
-### Interpretação de σ (sigma)
-
-1.  **Volatilidade da volatilidade**
-
-    -   **σ** é o desvio-padrão dos choques que afetam o processo de log-volatilidade
-
-    -   Quanto maior σ, mais pronunciadas são as flutuações de curto prazo na volatilidade.
-
-2.  **Incerteza dinâmica**
-
-    -   Reflete a variabilidade intrínseca na evolução da volatilidade latente, controlando a rapidez das mudanças de regimes.
-
-    -   Modelos com σ elevado tendem a capturar melhor eventos extremos (*fat tails*) e mudanças bruscas no risco.
-
-### O que podemos retirar das nossas observações
-
-Em particular, **μ** é a média de longo prazo da log-volatilidade, **φ** mede a persistência ou “memória” do processo, e **σ** quantifica a volatilidade da própria volatilidade.
-
-------------------------------------------------------------------------
-
-## Valores Estimados
-
-| Regime          | μ     | φ    | σ    |
-|-----------------|-------|------|------|
-| **Pré-queda**   | –13.8 | 0.97 | 0.16 |
-| **Pós-queda**   | –13.3 | 0.99 | 0.12 |
-| **Recuperação** | –14.4 | 0.98 | 0.11 |
-
-------------------------------------------------------------------------
-
-## Interpretação dos Parâmetros
-
-### 1. μ — Nível Médio de Longo Prazo
-
--   **Pré-queda (μ ≃ –13.8):** Nível médio moderado de log-volatilidade, indicando um mercado relativamente estável antes do choque.\
--   **Pós-queda (μ ≃ –13.3):** Aumento em μ sinaliza que a volatilidade média se elevou após o choque, refletindo comportamento mais errático e risco incrementado.\
--   **Recuperação (μ ≃ –14.4):** μ abaixo do nível pré-queda sugere um período de calmaria, com volatilidade média inferior ao patamar inicial
-
-### 2. φ — Persistência (AR(1))
-
--   **Pré-queda (φ ≃ 0.97):** Choques de volatilidade perduram vários minutos, caracterizando clusters de volatilidade típicos em séries financeiras.\
--   **Pós-queda (φ ≃ 0.99):** Persistência extrema, indicando que o impacto do choque permanece durante longo período e reduz a capacidade de “esquecer” choques passados.\
--   **Recuperação (φ ≃ 0.98):** Alta persistência, porém ligeiramente menor que no pós-queda, sinalizando retorno gradual a um regime menos grudado em choques passados.
-
-### 3. σ — Volatilidade da Volatilidade
-
--   **Pré-queda (σ ≃ 0.16):** Flutuações bruscas no nível latente de volatilidade, revelando instabilidade moderada na variância do processo.\
--   **Pós-queda (σ ≃ 0.12):** Apesar do regime mais volátil, a dispersão das mudanças na volatilidade latente diminui, indicando choques relativamente menos extremos no pós-queda.\
--   **Recuperação (σ ≃ 0.11):** Processo de volatilidade ainda mais estável, com menor amplitude de flutuações, corroborando o retorno a um regime de baixa incerteza.
-
-## Concluindo
-
-A análise dos parâmetros μ, φ e σ em diferentes regimes pós-queda revela mudanças profundas na dinâmica de risco de PETR4. Antes do choque, o mercado apresentava volatilidade moderada com alta instabilidade no processo latente. Após a queda, o aumento de μ e φ combinados com menor σ pautam um regime de alta persistência e volatilidade média elevada, porém com choques menos extremos. Na fase de recuperação, todos os parâmetros retornam a patamares de menor incerteza, indicando estabilização do mercado. Essas informações são cruciais para aprimorar modelos de previsão e estratégias de hedge em opções intradiárias.
-
-## Comparação de volatilidades
-
-Criaremos o mesmo segmento utilizados acima como:
-
-**Segmento A:** Valores de 1 a 10000 observações antes da queda brusca.
-
-**Segmento B:** valores de 11600 a 22600 (2000 valores antes da queda e a queda em si).
-
-**Segmento C:** valores de 33600 a 43600 observando a volatilidade do mercado semanas após a queda.
-
-Iremos comparar a volatilidade realizada desses pontos para entender como era uma função pré, durante e pós uma queda brusca no mercado.
-
-```{r}
 rets <- dt1$Ret.1min
 segments <- list(
   A = 1:10000,
@@ -318,9 +201,7 @@ ggplot(df_vol, aes(x = index, y = vol, color = segment)) +
     color    = "Segmento"
   ) +
   theme_minimal()
-```
 
-```{r}
 rets <- dt1$Ret.1min
 segments <- list(
   A = 1:10000,
@@ -357,9 +238,6 @@ plot_B
 plot_C  
 
 
-```
-
-```{r}
 h_mcmc <- sv_fit$latent[[1]]  
 h_mat <- as.matrix(h_mcmc)     
 dim(h_mat)                    
@@ -413,16 +291,12 @@ time_index_complt <- seq(
 df_est <- data.frame(time = time_index, vol = vol_est)
 df_est2 <- data.frame(time = time_index2, vol = vol_est2)
 df_est3 <- data.frame(time = time_index3, vol = vol_est3)
-```
 
-```{r}
 par(mfrow = c(3, 1))
 plot(df_est)
 plot(df_est2)
 plot(df_est3)
-```
 
-```{r}
 
 ggplot(df_est_complt, aes(x = time, y = vol)) +
   geom_line() +
@@ -432,21 +306,7 @@ ggplot(df_est_complt, aes(x = time, y = vol)) +
     y     = "σ̂_t"
   ) +
   theme_minimal()
-```
 
-## Decomposição MODWT
-
--   **Transformada**: MODWT em 12 níveis, correspondente ao máximo suportado.
-
--   **Onda‑mãe**: Haar, por sua simplicidade e desempenho.
-
--   **Interpretação**: níveis de detalhe (d1, d4, d8, d12) mostram oscilações de alta frequência ligadas ao salto de 22/02/2021; níveis de baixa frequência evidenciam a tendência geral.
-
-```{r}
-tseries::adf.test(df_est_complt$vol)
-```
-
-```{r}
 df_test <- data.frame(
   time = dt1$Period,
   vol  = dt1$`Ret.1min`
@@ -472,13 +332,10 @@ df_rv5 <- compute_realized_vol(df_test,
                                return_col = "vol",
                                time_col   = "time",
                                window     = "5 mins")
-```
 
-```{r}
 tseries::adf.test(df_rv5$vol)
-```
 
-```{r}
+
 plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") {
   
   filter_type <- "haar"
@@ -520,7 +377,7 @@ plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") 
         theme_minimal()
     }
   }
-
+  
   for (k in seq(1, length(plots_list), by = 2)) {
     p1 <- plots_list[[k]]
     p2 <- if ((k + 1) <= length(plots_list)) plots_list[[k + 1]] else NULL
@@ -533,40 +390,38 @@ plot_wavelet_levels_modwt_hist <- function(df, levels = 12, df_name = "df_est") 
   
   invisible(plots_list)
 }
-#como comparar volatilidade em periodos diferentes 
+
 plot_wavelet_levels_modwt_hist(df_est, levels = 12, df_name = "PETR4")
 
-```
 
-```{r}
 plot_wavelet_levels_modwt_jumps <- function(df, levels = 15, df_name = "df_est", momento) {
   filter_type <- "haar"
   max_levels <- min(levels, floor(log2(nrow(df))))
-
-
+  
+  
   modwt_res <- modwt(df$vol, filter = filter_type, n.levels = max_levels, boundary = "reflection")
   total_plots <- max_levels + 2 
   plots <- vector("list", total_plots)
-
+  
   for (idx in seq_len(total_plots)) {
     if (idx == 1) {
       p <- ggplot(df, aes(x = time, y = vol)) +
         geom_line(color = "blue") +
         labs(title = paste(df_name, ": Série Original"), x = "Tempo", y = "Volatilidade") +
         theme_minimal()
-
+      
     } else if (idx == total_plots) {
       approx <- modwt_res
       for (j in seq_len(max_levels)) approx@W[[j]][] <- 0
       series_approx <- imodwt(approx)
       df_a <- data.frame(time = df$time, value = series_approx[1:nrow(df)])
-
+      
       p <- ggplot(df_a, aes(x = time, y = value)) +
         geom_line(color = "red") +
         labs(title = paste(df_name, ": Aproximação (Nível", max_levels, ")"),
              x = "Tempo", y = "Valor") +
         theme_minimal()
-
+      
     } else {
       i <- idx - 1
       detail <- modwt_res
@@ -578,10 +433,10 @@ plot_wavelet_levels_modwt_jumps <- function(df, levels = 15, df_name = "df_est",
       thr_j <- sigma_j * sqrt(2 * log(length(Wj)))
       jumps <- which(abs(Wj) > thr_j)
       jumps <- jumps[jumps <= nrow(df)]
-
+      
       df_d$jumps <- NA
       df_d$jumps[jumps] <- df_d$value[jumps]
-
+      
       p <- ggplot(df_d, aes(x = time, y = value)) +
         geom_line(color = "darkgreen") +
         geom_point(data = subset(df_d, !is.na(jumps)),
@@ -592,7 +447,7 @@ plot_wavelet_levels_modwt_jumps <- function(df, levels = 15, df_name = "df_est",
     }
     plots[[idx]] <- p
   }
-
+  
   for (k in seq(1, length(plots), by = 2)) {
     p1 <- plots[[k]]
     p2 <- if ((k+1) <= length(plots)) plots[[k+1]] else NULL
@@ -602,24 +457,16 @@ plot_wavelet_levels_modwt_jumps <- function(df, levels = 15, df_name = "df_est",
       print(p1)
     }
   }
-
+  
   invisible(plots)
 }
-```
 
-```{r}
 plot_wavelet_levels_modwt_jumps(df_est, levels = 12, df_name = "PETR4", momento = "Pré queda")
-```
 
-```{r}
 plot_wavelet_levels_modwt_jumps(df_est2, levels = 12, df_name = "PETR4", momento = "Durante a queda")
-```
 
-```{r}
 plot_wavelet_levels_modwt_jumps(df_est3, levels = 12, df_name = "PETR4", momento = "Pós queda")
-```
 
-```{r}
 detect_jumps_modwt <- function(df, levels = 12) {
   filter_type <- "haar"
   max_levels <- min(levels, floor(log2(nrow(df))))
@@ -667,25 +514,17 @@ model_jump_intensity <- function(df, jump_list, window = "hour", df_name = "df_e
   }
   invisible(intensity_plots)
 }
-```
 
-```{r}
 res <- detect_jumps_modwt(df_est, levels = 12)
 model_jump_intensity(df_est, res$jumps, window = "hour", df_name = "PETR4",momento = "Pré queda")
 
-```
 
-```{r}
 res2 <- detect_jumps_modwt(df_est2, levels = 12)
 model_jump_intensity(df_est2, res2$jumps, window = "hour", df_name = "PETR4",momento = "Durante a queda")
-```
 
-```{r}
 res3 <- detect_jumps_modwt(df_est3, levels = 12)
 model_jump_intensity(df_est3, res3$jumps, window = "hour", df_name = "PETR4",momento = "Pós queda")
-```
 
-```{r load-packages, include=FALSE}
 res <- detect_jumps_modwt(df_est2, levels = 12)
 jumps_vec <- unlist(res$jumps)
 jump_idx <- which(!is.na(jumps_vec) & jumps_vec != 0)
@@ -700,9 +539,7 @@ sv_fit_orig <- svsample(y = ret,       draws = 5000, burnin = 1000,
 sv_fit_clean<- svsample(y = ret_clean, draws = 5000, burnin = 1000,
                         priormu = c(0,10), priorphi = c(20,1.1),
                         priorsigma = 1)
-```
 
-```{r}
 h_draws_orig  <- latent(sv_fit_orig)
 h_draws_clean <- latent(sv_fit_clean)
 h_mean_orig  <- colMeans(as.matrix(h_draws_orig))
@@ -744,22 +581,3 @@ bic_clean  <- infocriteria(fit_garch_clean)["Bayes"]
 resid_orig <- residuals(fit_garch_orig, standardize = TRUE)
 acf(resid_orig, main = "ACF Resíduos Padronizados (Orig.)")
 pacf(resid_orig, main = "PACF Resíduos Padronizados (Orig.)")
-```
-
-## Descrição dos Dados
-
-Para ilustrar a identificação de saltos em diferentes escalas, foi utilizada a série de preços da PETR4 (Petrobrás) no período de 04/01/2021 a 25/06/2021, com frequência de 1 minuto. A escolha deste ativo deve-se à sua alta liquidez e influência sobre o Ibovespa, além de um evento de queda acentuada em 22/02/2021, motivado pelo anúncio de troca de presidência da empresa.
-
--   **Fonte**: MetaTrader 5.
-
--   **Período**: 04/01/2021 a 25/06/2021 (119 dias, 49 611 observações).
-
--   **Ajustes**: remoção dos primeiros 19 minutos após abertura (10h20 em diante), para evitar ruídos de leilão de abertura.
-
-## Próximos Passos
-
--   Como reproduzir a serie estocastica.
--   Identificar saltos na serie estocastica limite universal.
--   tentar deconpor em ondaleta se possivel a serie estocastica.
-
-ler barunik, arruma ondeleta, saltos intradiarios, definir vetor na serie completa (onde não tiver saltos = 0, onde tiver salto - valor do indice anterior) calculo no Jv
